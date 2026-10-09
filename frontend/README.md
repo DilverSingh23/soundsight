@@ -2,6 +2,20 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Run commands below from `frontend/`. Start the FastAPI backend in another terminal
+using the instructions in `../backend/README.md`.
+
+The connection page defaults to `ws://localhost:8000/ws/listen`. To override it,
+copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_BACKEND_WS_URL`. Restart
+the development server after changing it. For deployment, set the public URL
+before building; an HTTPS frontend needs a `wss://` backend URL. This variable
+contains a public address, never an API key.
+
+Click **Connect** to open a WebSocket and send a ping. The page should show
+**Connected** and a pong acknowledgment. Click **Disconnect**, then reconnect.
+Stop the backend while connected to check the disconnected/error message;
+restart it and click **Connect** again. Microphone capture is not implemented yet.
+
 First, run the development server:
 
 ```bash
