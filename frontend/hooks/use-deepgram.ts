@@ -14,7 +14,7 @@ import {
 
 /** Owns a single real-caption session, including Picovoice and Deepgram. */
 export function useDeepgram() {
-  const stopRef = useRef<(() => void) | null>(null);
+  const stopRef = useRef<((graceful?: boolean) => void) | null>(null);
   const generationRef = useRef(0);
   const [status, setStatus] = useState<DeepgramConnectionStatus>("idle");
   const [microphoneStatus, setMicrophoneStatus] = useState<DeepgramMicrophoneStatus | "idle">("idle");
@@ -74,15 +74,9 @@ export function useDeepgram() {
   }, []);
 
   const stopListening = useCallback((): void => {
-    generationRef.current++;
-    stopRef.current?.();
-    stopRef.current = null;
-    setMicrophoneStatus("stopped");
-    setStatus("disconnected");
-    setStatusMessage("Microphone released and Deepgram session stopped.");
-    setTranscript((previous) => previous.interimText
-      ? { ...previous, interimText: "" } : previous);
-    // Keep confirmed captions visible until Clear Transcript or a new session.
+    // Do not invalidate callbacks yet: Deepgram may deliver final words after
+    // CloseStream. onEnded clears the session once the socket closes/times out.
+    stopRef.current?.(true);
   }, []);
 
   const clearTranscript = useCallback((): void => setTranscript(emptyDeepgramTranscript()), []);

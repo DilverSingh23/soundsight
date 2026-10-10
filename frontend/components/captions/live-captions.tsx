@@ -42,7 +42,8 @@ export default function LiveCaptions() {
 
   const isListening = microphoneStatus === "listening";
   const isStarting = microphoneStatus === "connecting" || microphoneStatus === "requesting-permission";
-  const isActive = isListening || isStarting;
+  const isFinishing = microphoneStatus === "finishing";
+  const isActive = isListening || isStarting || isFinishing;
   const sizeIndex = TEXT_SIZE_ORDER.indexOf(textSize);
   const finalParts = [...transcript.completedUtterances, ...transcript.currentFinalSegments];
   const hasTranscript = finalParts.length > 0 || transcript.interimText.length > 0;
@@ -92,11 +93,12 @@ export default function LiveCaptions() {
   }
 
   function stop() {
+    // Keep the reservation until CloseStream returns the last words.
+    // The status effect releases it once finishing ends.
     stopListening();
-    releaseCaptionsMicrophone();
   }
 
-  const statusLabel = isListening ? "Listening" : isStarting ? "Starting" :
+  const statusLabel = isListening ? "Listening" : isStarting ? "Starting" : isFinishing ? "Finishing" :
     microphoneStatus === "error" ? "Error" : microphoneStatus === "stopped" ? "Stopped" : "Ready";
   const detail = localError || statusMessage || "Tap Start Listening to transcribe nearby speech.";
 
@@ -168,9 +170,9 @@ export default function LiveCaptions() {
           <button type="button" onClick={start} disabled={isActive}
             className="flex min-h-[54px] items-center justify-center gap-2 rounded-[15px] bg-[#ebe6fa] px-4 font-semibold text-[#252044] hover:bg-white disabled:opacity-45">
             <ControlIcon type="play" />
-            {isListening ? "Listening" : isStarting ? "Starting…" : "Start Listening"}
+            {isListening ? "Listening" : isStarting ? "Starting…" : isFinishing ? "Finishing…" : "Start Listening"}
           </button>
-          <button type="button" onClick={stop} disabled={!isActive}
+          <button type="button" onClick={stop} disabled={!isActive || isFinishing}
             className="flex min-h-[54px] items-center justify-center gap-2 rounded-[15px] border border-[#715084] px-4 font-semibold text-[#ff8aa1] hover:bg-white/5 disabled:opacity-45">
             <ControlIcon type="stop" />Stop
           </button>

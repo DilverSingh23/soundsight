@@ -148,3 +148,17 @@ test("permission error is reported before the socket disconnect callback", async
   await tick();
   assert.deepEqual(order, ["error", "disconnect"]);
 });
+
+test("graceful stop releases recorder but keeps the Deepgram socket open", async () => {
+  const env = setup();
+  const stop = env.start();
+  await tick();
+  stop(true);
+  await tick();
+  assert.equal(env.recorderStops, 1);
+  assert.equal(env.disconnectCalls, 0);
+  env.frame();
+  assert.equal(env.sent.length, 0);
+  stop();
+  assert.equal(env.recorderStops, 1);
+});
