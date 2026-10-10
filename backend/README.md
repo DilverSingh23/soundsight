@@ -49,6 +49,8 @@ YAMNET_MODEL_DIR=.models/yamnet python -m uvicorn app.main:app --reload
 
 The model and environment are ignored by Git. The download requires internet;
 inference runs locally afterward. You can also set `YAMNET_MODEL_DIR` in `.env`.
+Start the frontend normally, click Start Listening, and expand its diagnostics.
+YAMNet status and category scores should update as you speak or play sounds.
 
 Each stream buffers 0.975-second windows with 0.48-second hops. PCM samples are
 normalized into float32 values before inference. The model is loaded and warmed

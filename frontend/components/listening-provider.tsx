@@ -1,12 +1,14 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { startMicrophoneStream, type AudioStats, type ListeningStatus } from "@/lib/microphone-stream";
+import { startMicrophoneStream, type AudioStats, type ListeningStatus, type Classification, type ClassificationStatus } from "@/lib/microphone-stream";
 
 type ListeningState = {
   status: ListeningStatus;
   message: string;
   stats: AudioStats | null;
+  classification: Classification | null;
+  classificationStatus: ClassificationStatus | null;
   active: boolean;
   start: () => void;
   stop: () => void;
@@ -22,6 +24,9 @@ export function ListeningProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState("");
   const [stats, setStats] = useState<AudioStats | null>(null);
 
+  const [classification, setClassification] = useState<Classification | null>(null);
+  const [classificationStatus, setClassificationStatus] = useState<ClassificationStatus | null>(null);
+
   useEffect(() => () => {
     generation.current++;
     activeRef.current = false;
@@ -34,12 +39,20 @@ export function ListeningProvider({ children }: { children: ReactNode }) {
     activeRef.current = true;
     const session = ++generation.current;
     setStats(null);
+    setClassification(null);
+    setClassificationStatus(null);
     cleanupRef.current = startMicrophoneStream({
       onStatus(next, detail) {
         if (session !== generation.current) return;
         activeRef.current = next !== "Stopped" && next !== "Error";
         setStatus(next);
         setMessage(detail);
+      },
+      onClassification(next) {
+        if (session === generation.current) setClassification(next);
+      },
+      onClassificationStatus(next) {
+        if (session === generation.current) setClassificationStatus(next);
       },
       onStats(next) {
         if (session === generation.current) setStats(next);
@@ -57,7 +70,7 @@ export function ListeningProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ListeningContext.Provider value={{ status, message, stats, active: status !== "Stopped" && status !== "Error", start, stop }}>
+    <ListeningContext.Provider value={{ status, message, stats, classification, classificationStatus, active: status !== "Stopped" && status !== "Error", start, stop }}>
       {children}
     </ListeningContext.Provider>
   );

@@ -3,7 +3,7 @@
 import { useListening } from "@/components/listening-provider";
 
 export default function ConnectionControls({ diagnosticsOnly = false, buttonsOnly = false }: { diagnosticsOnly?: boolean; buttonsOnly?: boolean }) {
-  const { status, message, stats, active, start, stop } = useListening();
+  const { status, message, stats, classification, classificationStatus, active, start, stop } = useListening();
   const buttonClass = "min-h-12 rounded-lg border border-current px-5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
@@ -24,7 +24,20 @@ export default function ConnectionControls({ diagnosticsOnly = false, buttonsOnl
           <p>RMS: {stats.rms.toFixed(4)} · Peak: {stats.peak.toFixed(4)}</p>
         </div>
       )}
-      {!buttonsOnly && <p className="mt-6 text-sm">Audio is sent to the SoundSight backend while listening and is not saved. Keep this app open and active. Captions and sound recognition are coming next.</p>}
+      {!buttonsOnly && classificationStatus && <p className="mt-4 text-sm">YAMNet: {classificationStatus.message}</p>}
+      {!buttonsOnly && classification && (
+        <div className="mt-4 text-sm">
+          <p className="font-semibold">Classification diagnostics — not notifications</p>
+          <p>Audio {classification.window_start.toFixed(2)}–{classification.window_end.toFixed(2)} s · Inference {classification.inference_ms.toFixed(0)} ms</p>
+          <ul className="mt-2 space-y-1">
+            {classification.results.map((result) => (
+              <li key={result.category}>{result.category} / {result.subtype}: {result.score.toFixed(3)} ({result.raw_class})</li>
+            ))}
+          </ul>
+          <p className="mt-2">Scores are model estimates, not confirmed detections. Values shown are from the last analyzed window.</p>
+        </div>
+      )}
+      {!buttonsOnly && <p className="mt-6 text-sm">Audio is sent to the SoundSight backend while listening and is not saved. Keep this app open and active. Live captions and sound notifications are not connected yet.</p>}
     </section>
   );
 }

@@ -1,9 +1,19 @@
 export type ListeningStatus = "Stopped" | "Requesting permission" | "Connecting" | "Listening" | "Error";
 export type AudioStats = { chunks: number; bytes: number; duration_seconds: number; rms: number; peak: number };
 
+export type Classification = {
+  window_start: number;
+  window_end: number;
+  inference_ms: number;
+  results: { category: string; subtype: string; score: number; raw_class: string }[];
+};
+export type ClassificationStatus = { state: "disabled" | "ready" | "error"; message: string };
+
 type Callbacks = {
   onStatus: (status: ListeningStatus, message: string) => void;
   onStats: (stats: AudioStats) => void;
+  onClassification?: (result: Classification) => void;
+  onClassificationStatus?: (status: ClassificationStatus) => void;
 };
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_WS_URL ?? "ws://localhost:8000/ws/listen";
@@ -19,7 +29,7 @@ export function encodePCMFrame(frame: Int16Array): ArrayBuffer {
 }
 
 // Returns cleanup immediately so Stop also works during permission/setup awaits.
-export function startMicrophoneStream({ onStatus, onStats }: Callbacks, getCapture: () => Promise<CaptureModule> = loadCapture): () => void {
+export function startMicrophoneStream({ onStatus, onStats, onClassification, onClassificationStatus }: Callbacks, getCapture: () => Promise<CaptureModule> = loadCapture): () => void {
   let stopped = false;
   let stopCapture: (() => Promise<void>) | undefined;
   let socket: WebSocket | undefined;
@@ -110,6 +120,10 @@ export function startMicrophoneStream({ onStatus, onStats }: Callbacks, getCaptu
           } else if (result.type === "audio_stats" && ready) {
             lastStats = Date.now();
             onStats(result);
+          } else if (result.type === "classification" && ready) {
+            onClassification?.(result);
+          } else if (result.type === "classification_status" && ready) {
+            onClassificationStatus?.(result);
           } else if (result.type === "error") {
             fail(result.message ?? "The backend rejected the audio stream.");
           } else {

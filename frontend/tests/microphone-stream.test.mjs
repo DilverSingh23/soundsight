@@ -7,6 +7,8 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
 function setup(t, pending = false) {
   const statuses = [];
   const stats = [];
+  const classifications = [];
+  const classificationStatuses = [];
   const track = { stopped: false, onended: null, stop() { this.stopped = true; } };
   const sockets = [];
   const contexts = [];
@@ -36,9 +38,9 @@ function setup(t, pending = false) {
     Object.defineProperty(globalThis, name, { configurable: true, value });
     t.after(() => { if (previous) Object.defineProperty(globalThis, name, previous); else delete globalThis[name]; });
   }
-  const stop = startMicrophoneStream({ onStatus: (status) => statuses.push(status), onStats: (value) => stats.push(value) }, async () => capture);
+  const stop = startMicrophoneStream({ onStatus: (status) => statuses.push(status), onStats: (value) => stats.push(value), onClassification: (value) => classifications.push(value), onClassificationStatus: (value) => classificationStatuses.push(value) }, async () => capture);
   t.after(stop);
-  return { stop, track, sockets, contexts, nodes, statuses, stats, grant: () => grant() };
+  return { stop, track, sockets, contexts, nodes, statuses, stats, classifications, classificationStatuses, grant: () => grant() };
 }
 
 async function connect(env) {
@@ -105,4 +107,18 @@ test("slow connection stops instead of accumulating delayed audio", async (t) =>
 test("PCM serialization preserves signed samples in little-endian order", () => {
   const bytes = new Uint8Array(encodePCMFrame(new Int16Array([0, 32767, -32768, -1])));
   assert.deepEqual([...bytes], [0, 0, 255, 127, 0, 128, 255, 255]);
+});
+
+test("classification diagnostics and model failures preserve microphone streaming", async (t) => {
+  const env = setup(t);
+  const socket = await connect(env);
+  const result = { type: "classification", window_start: 0, window_end: 0.975, inference_ms: 20, results: [{ category: "speech", subtype: "general", score: 0.8, raw_class: "Speech" }] };
+  socket.onmessage({ data: JSON.stringify(result) });
+  socket.onmessage({ data: JSON.stringify({ type: "classification_status", state: "error", message: "Classification stopped" }) });
+  assert.deepEqual(env.classifications, [result]);
+  assert.equal(env.classificationStatuses[0].state, "error");
+  env.nodes[0].send(new Int16Array(1600));
+  assert.equal(socket.sent[1].byteLength, 3200);
+  assert.equal(env.statuses.at(-1), "Listening");
+  assert.equal(env.track.stopped, false);
 });
