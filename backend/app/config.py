@@ -17,3 +17,15 @@ ELEVENLABS_MODEL_ID = os.getenv("ELEVENLABS_MODEL_ID", "eleven_flash_v2_5")
 # The frontend origin allowed to call this backend's HTTP endpoints (CORS).
 # Must match the browser's Origin header exactly, including scheme and port.
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+# Never expose the permanent credential to Next.js or return it from an API.
+DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "")
+
+# Additional frontend origins allowed to call backend HTTP endpoints.
+SOUNDSIGHT_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "SOUNDSIGHT_ALLOWED_ORIGINS",
+        "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000",
+    ).split(",")
+    if origin.strip()
+]
