@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { demoSounds } from "@/components/alerts/demo-sounds";
 import AlertIcon, { type SoundKind } from "@/components/alerts/alert-icon";
 import SeverityBadge, {
   type SoundSeverity,
@@ -18,41 +20,6 @@ type AlertItem = {
 };
 
 type AlertFilter = "all" | SoundSeverity;
-type DemoSound = Pick<AlertItem, "kind" | "label" | "message" | "severity">;
-
-const demoSounds: readonly DemoSound[] = [
-  {
-    kind: "siren",
-    label: "Siren detected",
-    message: "An emergency vehicle is nearby.",
-    severity: "critical",
-  },
-  {
-    kind: "doorbell",
-    label: "Doorbell",
-    message: "Someone may be at your door.",
-    severity: "important",
-  },
-  {
-    kind: "speech",
-    label: "Speech nearby",
-    message: "A person is speaking close to you.",
-    severity: "important",
-  },
-  {
-    kind: "dog",
-    label: "Dog barking",
-    message: "A dog is barking in the distance.",
-    severity: "ambient",
-  },
-  {
-    kind: "horn",
-    label: "Car horn",
-    message: "A vehicle sounded its horn nearby.",
-    severity: "important",
-  },
-];
-
 // Fixed display times make the sample feed deterministic during SSR/hydration.
 const sampleTimes = ["9:41 AM", "9:38 AM", "9:36 AM", "9:32 AM", "9:28 AM"];
 const sampleAlerts: AlertItem[] = demoSounds.map((sound, index) => ({
@@ -174,7 +141,11 @@ export default function SoundAlerts() {
           <ol className="mt-3 divide-y divide-outline" aria-label="Sound alert history">
             {visibleAlerts.map((alert) => (
               <li key={alert.id}>
-                <article className="flex gap-3 py-4">
+                <Link
+                  href={`/alerts/${alert.kind}`}
+                  aria-label={`View ${alert.label} sample alert details`}
+                  className="-mx-2 flex min-h-16 gap-3 rounded-xl px-2 py-4 transition-colors hover:bg-brand-soft/45 focus-visible:bg-brand-soft/45"
+                >
                   <div
                     className={[
                       "flex h-11 w-11 shrink-0 items-center justify-center rounded-[15px]",
@@ -200,7 +171,7 @@ export default function SoundAlerts() {
                       className="mt-1.5 text-[10px]"
                     />
                   </div>
-                </article>
+                </Link>
               </li>
             ))}
           </ol>
