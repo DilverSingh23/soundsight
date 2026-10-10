@@ -9,11 +9,17 @@ function setup() {
   let ended = 0;
   let disconnected = 0;
   let micStopped = 0;
+  let finalizeCalls = 0;
+  let resolveFinishing;
   let transportCallbacks;
   let microphoneCallbacks;
   const transport = {
     async connect() {},
     sendAudio() {},
+    finish() {
+      finalizeCalls++;
+      return new Promise((resolve) => { resolveFinishing = resolve; });
+    },
     disconnect() {
       disconnected++;
       transportCallbacks.onStatus("disconnected", "Internal close");
@@ -31,9 +37,12 @@ function setup() {
     assert.equal(client, transport);
     microphoneCallbacks = cb;
     cb.onStatus("connecting", "Preparing Deepgram");
-    return () => {
+    let stopped = false;
+    return (keepConnectionOpen = false) => {
+      if (stopped) return;
+      stopped = true;
       micStopped++;
-      client.disconnect();
+      if (!keepConnectionOpen) client.disconnect();
       cb.onStatus("stopped", "Internal stop");
     };
   });
@@ -42,6 +51,8 @@ function setup() {
     get ended() { return ended; },
     get disconnected() { return disconnected; },
     get micStopped() { return micStopped; },
+    get finalizeCalls() { return finalizeCalls; },
+    resolveFinishing: () => resolveFinishing?.(),
   };
 }
 
@@ -114,4 +125,59 @@ test("finished sessions do not handle late frames or messages", () => {
   assert.equal(env.messages.length, 0);
   assert.equal(env.microphone.at(-1)[0], "stopped");
   assert.equal(env.ended, 1);
+});
+
+const tick = () => new Promise((resolve) => setImmediate(resolve));
+
+test("Stop during listening waits for trailing final result before ending", async () => {
+  const env = setup();
+  env.microphoneCallbacks.onStatus("listening", "Recording");
+  env.stop(true);
+  assert.equal(env.micStopped, 1);
+  assert.equal(env.disconnected, 0);
+  assert.equal(env.finalizeCalls, 1);
+  assert.equal(env.ended, 0);
+  assert.equal(env.microphone.at(-1)[0], "finishing");
+  // Deepgram may still send finalized words before its CloseStream closes.
+  const final = { type: "Results", is_final: true, channel: { alternatives: [{ transcript: "Goodbye." }] } };
+  env.transportCallbacks.onMessage(final);
+  assert.deepEqual(env.messages, [final]);
+  env.transportCallbacks.onStatus("disconnected", "Provider finished");
+  env.resolveFinishing();
+  await tick();
+  assert.equal(env.ended, 1);
+  assert.equal(env.microphone.at(-1)[0], "stopped");
+  env.transportCallbacks.onMessage({ type: "Results" });
+  assert.equal(env.messages.length, 1);
+});
+
+test("Stop before microphone is listening remains immediate", () => {
+  const env = setup();
+  env.stop(true);
+  assert.equal(env.finalizeCalls, 0);
+  assert.equal(env.ended, 1);
+  assert.equal(env.disconnected, 1);
+});
+
+test("while finishing, repeated Stop does not resend CloseStream", () => {
+  const env = setup();
+  env.microphoneCallbacks.onStatus("listening", "Recording");
+  env.stop(true);
+  env.stop(true);
+  assert.equal(env.finalizeCalls, 1);
+  assert.equal(env.micStopped, 1);
+  env.resolveFinishing();
+});
+
+test("page unmount during finalization closes the socket immediately", () => {
+  const env = setup();
+  env.microphoneCallbacks.onStatus("listening", "Recording");
+  env.stop(true);
+  assert.equal(env.ended, 0);
+  env.stop(); // Route cleanup, not another user Stop click.
+  assert.equal(env.ended, 1);
+  assert.equal(env.disconnected, 1);
+  env.transportCallbacks.onMessage({ type: "Results" });
+  assert.equal(env.messages.length, 0);
+  env.resolveFinishing();
 });

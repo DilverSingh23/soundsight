@@ -12,6 +12,7 @@ export type DeepgramMicrophoneStatus =
   | "connecting"
   | "requesting-permission"
   | "listening"
+  | "finishing"
   | "stopped"
   | "error";
 
@@ -63,8 +64,8 @@ export function startDeepgramMicrophone(
   let active = true;
   let releaseMicrophone: (() => Promise<void>) | null = null;
 
-  function release(): void {
-    transport.disconnect();
+  function release(keepConnectionOpen = false): void {
+    if (!keepConnectionOpen) transport.disconnect();
     const releaseCapture = releaseMicrophone;
     releaseMicrophone = null;
     if (releaseCapture) void releaseCapture().catch(() => {});
@@ -79,11 +80,12 @@ export function startDeepgramMicrophone(
     release();
   }
 
-  function stop(): void {
+  function stop(keepConnectionOpen = false): void {
     if (!active) return;
     active = false;
-    release();
-    callbacks.onStatus("stopped", "Microphone released and Deepgram disconnected.");
+    // During graceful Stop, do not close Deepgram until it returns final words.
+    release(keepConnectionOpen);
+    callbacks.onStatus("stopped", "Microphone released.");
   }
 
   async function start(): Promise<void> {

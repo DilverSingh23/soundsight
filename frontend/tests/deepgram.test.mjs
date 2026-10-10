@@ -177,3 +177,39 @@ test("network failure after opening reports an error and releases the socket", a
   assert.equal(env.client.currentStatus, "error");
   assert.equal(socket.readyState, 3);
 });
+
+test("graceful finish waits for Deepgram's final Results before closing", async (t) => {
+  const env = mockEnvironment(t);
+  const socket = await connect(env);
+  const finishing = env.client.finish();
+  assert.deepEqual(socket.sent, ['{"type":"CloseStream"}']);
+  assert.equal(socket.readyState, 1);
+  const final = { type: "Results", is_final: true, speech_final: true,
+    channel: { alternatives: [{ transcript: "Last few words." }] } };
+  socket.message(final);
+  assert.deepEqual(env.messages.at(-1), final);
+  socket.closeFromServer();
+  await finishing;
+  assert.equal(env.client.currentStatus, "disconnected");
+});
+
+test("graceful finish is idempotent and audio cannot be sent afterward", async (t) => {
+  const env = mockEnvironment(t);
+  const socket = await connect(env);
+  const first = env.client.finish();
+  const second = env.client.finish();
+  assert.equal(first, second);
+  assert.equal(socket.sent.length, 1);
+  assert.throws(() => env.client.sendAudio(new ArrayBuffer(3200)), /finishing/);
+  env.client.disconnect();
+  await first;
+  assert.equal(socket.readyState, 3);
+});
+
+test("graceful finish times out if the provider never closes", async (t) => {
+  const env = mockEnvironment(t);
+  const socket = await connect(env);
+  await env.client.finish();
+  assert.equal(socket.readyState, 3);
+  assert.equal(env.client.currentStatus, "disconnected");
+});
