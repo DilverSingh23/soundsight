@@ -37,7 +37,7 @@ export default function ConnectionControls({ diagnosticsOnly = false, buttonsOnl
           <p className="mt-2">Scores are model estimates, not confirmed detections. Values shown are from the last analyzed window.</p>
         </div>
       )}
-      {!buttonsOnly && <p className="mt-6 text-sm">Audio is sent to the SoundSight backend while listening and is not saved. Keep this app open and active. Live captions and sound notifications are not connected yet.</p>}
+      {!buttonsOnly && <p className="mt-6 text-sm">Audio is sent to the SoundSight backend while listening and is not saved. Keep this app open and active for sound alerts. Live captions and lock-screen push are not connected yet.</p>}
     </section>
   );
 }

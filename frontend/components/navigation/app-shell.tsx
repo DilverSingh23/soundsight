@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useListening } from "@/components/listening-provider";
 import BottomNavigation from "./bottom-navigation";
+import SoundEventBanner from "@/components/alerts/sound-event-banner";
 import { useSoundSightPreferences } from "@/lib/preferences";
 
 type AppShellProps = {
@@ -40,6 +41,7 @@ export default function AppShell({ children }: AppShellProps) {
             {active && <button type="button" onClick={stop} className="min-h-11 rounded-xl border border-current px-3 font-semibold">Stop Listening</button>}
           </div>
         )}
+        <SoundEventBanner />
         {children}
       </div>
       <BottomNavigation theme={isDark ? "dark" : "light"} />

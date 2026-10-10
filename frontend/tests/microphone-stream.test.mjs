@@ -9,6 +9,7 @@ function setup(t, pending = false) {
   const stats = [];
   const classifications = [];
   const classificationStatuses = [];
+  const soundEvents = [];
   const track = { stopped: false, onended: null, stop() { this.stopped = true; } };
   const sockets = [];
   const contexts = [];
@@ -38,9 +39,9 @@ function setup(t, pending = false) {
     Object.defineProperty(globalThis, name, { configurable: true, value });
     t.after(() => { if (previous) Object.defineProperty(globalThis, name, previous); else delete globalThis[name]; });
   }
-  const stop = startMicrophoneStream({ onStatus: (status) => statuses.push(status), onStats: (value) => stats.push(value), onClassification: (value) => classifications.push(value), onClassificationStatus: (value) => classificationStatuses.push(value) }, async () => capture);
+  const stop = startMicrophoneStream({ onStatus: (status) => statuses.push(status), onStats: (value) => stats.push(value), onClassification: (value) => classifications.push(value), onClassificationStatus: (value) => classificationStatuses.push(value), onSoundEvent: (value) => soundEvents.push(value) }, async () => capture);
   t.after(stop);
-  return { stop, track, sockets, contexts, nodes, statuses, stats, classifications, classificationStatuses, grant: () => grant() };
+  return { stop, track, sockets, contexts, nodes, statuses, stats, classifications, classificationStatuses, soundEvents, grant: () => grant() };
 }
 
 async function connect(env) {
@@ -121,4 +122,15 @@ test("classification diagnostics and model failures preserve microphone streamin
   assert.equal(socket.sent[1].byteLength, 3200);
   assert.equal(env.statuses.at(-1), "Listening");
   assert.equal(env.track.stopped, false);
+});
+
+test("approved sound events reach the listener while audio keeps streaming", async (t) => {
+  const env = setup(t);
+  const socket = await connect(env);
+  const event = { type: "sound_event", id: "test-event", category: "dog", subtype: "bark", label: "Possible dog barking", score: 0.8, audio_time: 0.975, severity: "ambient" };
+  socket.onmessage({ data: JSON.stringify(event) });
+  assert.deepEqual(env.soundEvents, [event]);
+  env.nodes[0].send(new Int16Array(1600));
+  assert.equal(socket.sent[1].byteLength, 3200);
+  assert.equal(env.statuses.at(-1), "Listening");
 });

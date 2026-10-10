@@ -12,6 +12,7 @@ from app.tts import router as tts_router
 
 from app.audio.windows import AudioWindowBuffer
 from app.audio.yamnet import YamnetClassifier
+from app.events.sound_notifications import SoundNotificationFilter
 
 
 @asynccontextmanager
@@ -51,6 +52,7 @@ async def listen(websocket: WebSocket):
     interval_samples = 0
 
     windows = AudioWindowBuffer()
+    notification_filter = SoundNotificationFilter()
     pending = asyncio.Queue(maxsize=1)
     send_lock = asyncio.Lock()
     classifier_task = None
@@ -81,6 +83,15 @@ async def listen(websocket: WebSocket):
                     "inference_ms": round((time.perf_counter() - began) * 1000, 1),
                     "results": results,
                 })
+                for result in results:
+                    event = notification_filter.process(
+                        category=result["category"],
+                        score=result["score"],
+                        audio_time=window.end_seconds,
+                        subtype=result["subtype"],
+                    )
+                    if event is not None:
+                        await send(event)
         except asyncio.CancelledError:
             raise
         except Exception:

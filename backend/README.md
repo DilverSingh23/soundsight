@@ -49,8 +49,11 @@ YAMNET_MODEL_DIR=.models/yamnet python -m uvicorn app.main:app --reload
 
 The model and environment are ignored by Git. The download requires internet;
 inference runs locally afterward. You can also set `YAMNET_MODEL_DIR` in `.env`.
-Start the frontend normally, click Start Listening, and expand its diagnostics.
-YAMNet status and category scores should update as you speak or play sounds.
+Start the frontend normally and click Start Listening. Accepted sound events
+appear in an eight-second in-app banner and the recognized-sounds history on
+Home and Alerts. Expand diagnostics to see raw category scores. Sample activity
+is separate from real results. History is capped at 100 events in frontend memory
+and disappears when cleared or the tab reloads. There is no raw audio recording.
 
 Each stream buffers 0.975-second windows with 0.48-second hops. PCM samples are
 normalized into float32 values before inference. The model is loaded and warmed
@@ -64,7 +67,22 @@ or `error`). Enabled streams also receive `classification` messages containing
 diagnostics for speech, sirens, doorbells, barking, and horns, not notifications
 or confirmed detections. A model failure leaves audio reception active.
 
+Each connection owns a `SoundNotificationFilter`. Every category result is
+checked using the window's end time as `audio_time` (seconds since capture
+began). Scores below the configured threshold or within a category cooldown
+produce no alert. Accepted results are sent as the filter branch's `sound_event`
+JSON: `id`, `category`, `subtype`, `label`, `score`, `audio_time`, `severity`, and
+`type`. This is the current integration payload, rather than the future
+UTC/source/raw-class contract described in CLAUDE.md. The frontend records local
+receipt time for display; it is not the precise time the sound occurred.
+
+Defaults remain 0.5 for all thresholds, 5-second cooldowns for siren/doorbell/horn,
+and 10 seconds for barking. A continuous sound can alert again when its cooldown
+expires; occurrence grouping is not implemented. Speech results remain diagnostic
+only. Speech sessions, Deepgram, browser/system notifications, and lock-screen
+Web Push are not included in this integration.
+
 The wrapper reads the model's 521-class label map rather than hardcoding score
-indexes. Embeddings and spectrograms are unused. Notification thresholds,
-cooldowns, speech sessions, and the teammate's filter are still separate work.
+indexes. Embeddings and spectrograms are unused. Notification settings live in
+`app/events/sound_notifications.py`; category mapping stays in `app/audio/yamnet.py`.
 The siren subtype score/margin rules are provisional diagnostic choices.

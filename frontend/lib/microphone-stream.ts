@@ -8,12 +8,23 @@ export type Classification = {
   results: { category: string; subtype: string; score: number; raw_class: string }[];
 };
 export type ClassificationStatus = { state: "disabled" | "ready" | "error"; message: string };
+export type SoundEvent = {
+  type: "sound_event";
+  id: string;
+  category: "siren" | "doorbell" | "dog" | "horn";
+  subtype: string;
+  label: string;
+  score: number;
+  audio_time: number;
+  severity: "critical" | "important" | "ambient";
+};
 
 type Callbacks = {
   onStatus: (status: ListeningStatus, message: string) => void;
   onStats: (stats: AudioStats) => void;
   onClassification?: (result: Classification) => void;
   onClassificationStatus?: (status: ClassificationStatus) => void;
+  onSoundEvent?: (event: SoundEvent) => void;
 };
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_WS_URL ?? "ws://localhost:8000/ws/listen";
@@ -29,7 +40,7 @@ export function encodePCMFrame(frame: Int16Array): ArrayBuffer {
 }
 
 // Returns cleanup immediately so Stop also works during permission/setup awaits.
-export function startMicrophoneStream({ onStatus, onStats, onClassification, onClassificationStatus }: Callbacks, getCapture: () => Promise<CaptureModule> = loadCapture): () => void {
+export function startMicrophoneStream({ onStatus, onStats, onClassification, onClassificationStatus, onSoundEvent }: Callbacks, getCapture: () => Promise<CaptureModule> = loadCapture): () => void {
   let stopped = false;
   let stopCapture: (() => Promise<void>) | undefined;
   let socket: WebSocket | undefined;
@@ -124,6 +135,8 @@ export function startMicrophoneStream({ onStatus, onStats, onClassification, onC
             onClassification?.(result);
           } else if (result.type === "classification_status" && ready) {
             onClassificationStatus?.(result);
+          } else if (result.type === "sound_event" && ready) {
+            onSoundEvent?.(result);
           } else if (result.type === "error") {
             fail(result.message ?? "The backend rejected the audio stream.");
           } else {

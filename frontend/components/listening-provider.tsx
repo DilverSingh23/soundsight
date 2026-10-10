@@ -1,7 +1,9 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { startMicrophoneStream, type AudioStats, type ListeningStatus, type Classification, type ClassificationStatus } from "@/lib/microphone-stream";
+import { startMicrophoneStream, type AudioStats, type ListeningStatus, type Classification, type ClassificationStatus, type SoundEvent } from "@/lib/microphone-stream";
+
+type ReceivedSoundEvent = SoundEvent & { receivedAt: string };
 
 type ListeningState = {
   status: ListeningStatus;
@@ -9,6 +11,8 @@ type ListeningState = {
   stats: AudioStats | null;
   classification: Classification | null;
   classificationStatus: ClassificationStatus | null;
+  soundEvents: ReceivedSoundEvent[];
+  clearSoundEvents: () => void;
   active: boolean;
   start: () => void;
   stop: () => void;
@@ -26,6 +30,7 @@ export function ListeningProvider({ children }: { children: ReactNode }) {
 
   const [classification, setClassification] = useState<Classification | null>(null);
   const [classificationStatus, setClassificationStatus] = useState<ClassificationStatus | null>(null);
+  const [soundEvents, setSoundEvents] = useState<ReceivedSoundEvent[]>([]);
 
   useEffect(() => () => {
     generation.current++;
@@ -54,6 +59,12 @@ export function ListeningProvider({ children }: { children: ReactNode }) {
       onClassificationStatus(next) {
         if (session === generation.current) setClassificationStatus(next);
       },
+      onSoundEvent(next) {
+        if (session !== generation.current) return;
+        const received = { ...next, receivedAt: new Date().toISOString() };
+        setSoundEvents((previous) => previous.some((event) => event.id === next.id)
+          ? previous : [received, ...previous].slice(0, 100));
+      },
       onStats(next) {
         if (session === generation.current) setStats(next);
       },
@@ -70,7 +81,7 @@ export function ListeningProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ListeningContext.Provider value={{ status, message, stats, classification, classificationStatus, active: status !== "Stopped" && status !== "Error", start, stop }}>
+    <ListeningContext.Provider value={{ status, message, stats, classification, classificationStatus, soundEvents, clearSoundEvents: () => setSoundEvents([]), active: status !== "Stopped" && status !== "Error", start, stop }}>
       {children}
     </ListeningContext.Provider>
   );
