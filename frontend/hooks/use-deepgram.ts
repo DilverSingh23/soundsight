@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeepgramClient, type DeepgramConnectionStatus } from "@/lib/deepgram";
+import { startDeepgramMicrophone, type DeepgramMicrophoneStatus } from "@/lib/deepgram-microphone";
+import { startLiveCaptionsSession } from "@/lib/live-captions-session";
 import {
   applyDeepgramMessage,
   emptyDeepgramTranscript,
@@ -10,69 +12,77 @@ import {
   type DeepgramTranscript,
 } from "@/lib/deepgram-transcript";
 
-/**
- * React-facing Deepgram session state. This hook does not request mic access;
- * the existing Picovoice capture will supply PCM in the integration commit.
- */
+/** Owns a single real-caption session, including Picovoice and Deepgram. */
 export function useDeepgram() {
-  const clientRef = useRef<DeepgramClient | null>(null);
+  const stopRef = useRef<(() => void) | null>(null);
   const generationRef = useRef(0);
   const [status, setStatus] = useState<DeepgramConnectionStatus>("idle");
+  const [microphoneStatus, setMicrophoneStatus] = useState<DeepgramMicrophoneStatus | "idle">("idle");
   const [statusMessage, setStatusMessage] = useState("");
   const [transcript, setTranscript] = useState<DeepgramTranscript>(emptyDeepgramTranscript);
 
   useEffect(() => () => {
-    // Ignore events from a previous session, including late network responses.
-    generationRef.current += 1;
-    clientRef.current?.disconnect();
-    clientRef.current = null;
+    // Ignore late network events after leaving the Captions route.
+    generationRef.current++;
+    stopRef.current?.();
+    stopRef.current = null;
   }, []);
 
-  const connect = useCallback(async (): Promise<void> => {
-    if (clientRef.current) throw new Error("Deepgram is already connecting or connected.");
-    const generation = ++generationRef.current;
+  const startListening = useCallback((): boolean => {
+    if (stopRef.current) return false;
+    const session = ++generationRef.current;
     setTranscript(emptyDeepgramTranscript());
+    setMicrophoneStatus("connecting");
+    setStatus("authenticating");
+    setStatusMessage("Connecting to Deepgram before requesting microphone access…");
 
-    const client = new DeepgramClient({
-      onStatus(nextStatus, message) {
-        if (generation !== generationRef.current) return;
-        setStatus(nextStatus);
-        setStatusMessage(message);
-        if ((nextStatus === "error" || nextStatus === "disconnected") && clientRef.current === client) {
-          clientRef.current = null;
-        }
-      },
-      onMessage(message) {
-        if (generation !== generationRef.current) return;
-        setTranscript((previous) => applyDeepgramMessage(previous, message));
-      },
-    });
-    clientRef.current = client;
     try {
-      await client.connect();
-    } catch (error) {
-      if (generation === generationRef.current && clientRef.current === client) {
-        clientRef.current = null;
-        setStatus("error");
-        setStatusMessage("Could not establish a Deepgram session.");
-      }
-      throw error;
+      const stop = startLiveCaptionsSession({
+        onConnectionStatus(nextStatus, message) {
+          if (session !== generationRef.current) return;
+          setStatus(nextStatus);
+          setStatusMessage(message);
+        },
+        onMicrophoneStatus(nextStatus, message) {
+          if (session !== generationRef.current) return;
+          setMicrophoneStatus(nextStatus);
+          setStatusMessage(message);
+        },
+        onMessage(message) {
+          if (session !== generationRef.current) return;
+          setTranscript((previous) => applyDeepgramMessage(previous, message));
+        },
+        onEnded() {
+          if (session === generationRef.current) {
+            stopRef.current = null;
+            // Interrupted provisional text is not a finalized caption.
+            setTranscript((previous) => previous.interimText
+              ? { ...previous, interimText: "" } : previous);
+          }
+        },
+      }, (callbacks) => new DeepgramClient(callbacks), startDeepgramMicrophone);
+      if (session === generationRef.current) stopRef.current = stop;
+      else stop();
+      return true;
+    } catch {
+      setMicrophoneStatus("error");
+      setStatus("error");
+      setStatusMessage("Could not start live captions. Please try again.");
+      stopRef.current = null;
+      return false;
     }
   }, []);
 
-  const sendAudio = useCallback((audio: ArrayBuffer): void => {
-    if (!clientRef.current) throw new Error("Deepgram is not connected.");
-    clientRef.current.sendAudio(audio);
-  }, []);
-
-  const disconnect = useCallback((): void => {
-    generationRef.current += 1;
-    const client = clientRef.current;
-    clientRef.current = null;
-    client?.disconnect();
+  const stopListening = useCallback((): void => {
+    generationRef.current++;
+    stopRef.current?.();
+    stopRef.current = null;
+    setMicrophoneStatus("stopped");
     setStatus("disconnected");
-    setStatusMessage("Deepgram session stopped.");
-    // Preserve completed captions for review until another session starts.
+    setStatusMessage("Microphone released and Deepgram session stopped.");
+    setTranscript((previous) => previous.interimText
+      ? { ...previous, interimText: "" } : previous);
+    // Keep confirmed captions visible until Clear Transcript or a new session.
   }, []);
 
   const clearTranscript = useCallback((): void => setTranscript(emptyDeepgramTranscript()), []);
@@ -81,14 +91,14 @@ export function useDeepgram() {
 
   return {
     status,
+    microphoneStatus,
     statusMessage,
     transcript,
     finalTranscript,
     interimTranscript: transcript.interimText,
     visibleTranscript,
-    connect,
-    sendAudio,
-    disconnect,
+    startListening,
+    stopListening,
     clearTranscript,
   };
 }

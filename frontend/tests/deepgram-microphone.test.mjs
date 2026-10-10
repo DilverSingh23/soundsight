@@ -134,3 +134,17 @@ test("late frames after stop are ignored", async () => {
   env.frame();
   assert.equal(env.sent.length, 0);
 });
+
+test("permission error is reported before the socket disconnect callback", async () => {
+  const order = [];
+  const transport = {
+    async connect() {},
+    sendAudio() {},
+    disconnect() { order.push("disconnect"); },
+  };
+  startDeepgramMicrophone(transport, {
+    onStatus(status) { if (status === "error") order.push("error"); },
+  }, async () => { throw Object.assign(new Error("denied"), { name: "NotAllowedError" }); });
+  await tick();
+  assert.deepEqual(order, ["error", "disconnect"]);
+});
