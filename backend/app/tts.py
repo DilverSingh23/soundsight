@@ -15,7 +15,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from elevenlabs import AsyncElevenLabs
+from elevenlabs import AsyncElevenLabs, VoiceSettings
 from elevenlabs.core.api_error import ApiError
 
 from app.config import ELEVENLABS_API_KEY, ELEVENLABS_MODEL_ID, ELEVENLABS_VOICE_ID
@@ -26,9 +26,16 @@ router = APIRouter(prefix="/tts", tags=["tts"])
 # 44.1kHz/128kbps, a reasonable default for browser <audio> playback.
 TTS_OUTPUT_FORMAT = "mp3_44100_128"
 
+# Matches the speaking-rate range the frontend already exposes in Settings
+# (frontend/lib/preferences.ts), confirmed against the installed SDK's
+# VoiceSettings.speed field rather than assumed.
+SPEED_MIN = 0.7
+SPEED_MAX = 1.3
+
 
 class SpeakRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=2000)
+    speed: float | None = Field(None, ge=SPEED_MIN, le=SPEED_MAX)
 
 
 # Builds an ElevenLabs client, or fails fast with a clear 500 if no API key is configured.
@@ -46,17 +53,30 @@ def _get_client() -> AsyncElevenLabs:
 async def speak(request: SpeakRequest) -> StreamingResponse:
     client = _get_client()
 
+    # client.text_to_speech.stream(...) is an async generator function: calling it
+    # returns the generator immediately without making the HTTP request. The request
+    # only fires on the first __anext__, so we pull that chunk here, inside the
+    # try/except, to catch auth/ApiError before any response bytes reach the caller.
+    audio_stream = client.text_to_speech.stream(
+        voice_id=ELEVENLABS_VOICE_ID,
+        text=request.text,
+        model_id=ELEVENLABS_MODEL_ID,
+        output_format=TTS_OUTPUT_FORMAT,
+        voice_settings=VoiceSettings(speed=request.speed) if request.speed else None,
+    )
     try:
-        audio_stream = await client.text_to_speech.stream(
-            voice_id=ELEVENLABS_VOICE_ID,
-            text=request.text,
-            model_id=ELEVENLABS_MODEL_ID,
-            output_format=TTS_OUTPUT_FORMAT,
-        )
+        first_chunk = await audio_stream.__anext__()
+    except StopAsyncIteration:
+        raise HTTPException(status_code=502, detail="ElevenLabs returned no audio.")
     except ApiError as exc:
         raise HTTPException(
             status_code=502,
             detail=f"ElevenLabs request failed (status {exc.status_code}).",
         ) from exc
 
-    return StreamingResponse(audio_stream, media_type="audio/mpeg")
+    async def audio_chunks():
+        yield first_chunk
+        async for chunk in audio_stream:
+            yield chunk
+
+    return StreamingResponse(audio_chunks(), media_type="audio/mpeg")
