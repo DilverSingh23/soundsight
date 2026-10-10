@@ -22,6 +22,7 @@ const AUDIO_SAMPLE_RATE_HZ = 16_000;
 const AUDIO_CHANNELS = 1;
 const MAX_BUFFERED_AUDIO_BYTES = 32_000; // 1 second of 16 kHz, 16-bit mono audio.
 const CONNECT_TIMEOUT_MS = 10_000;
+const STREAM_FINISH_TIMEOUT_MS = 2_500; // Bound time waiting for final words on Stop.
 const BACKEND_HTTP_URL =
   process.env.NEXT_PUBLIC_BACKEND_HTTP_URL ?? "http://localhost:8000";
 
@@ -61,6 +62,9 @@ export class DeepgramClient {
   private generation = 0;
   private connecting = false;
   private pendingConnectionReject: ((error: Error) => void) | null = null;
+  private finishingPromise: Promise<void> | null = null;
+  private finishResolve: (() => void) | null = null;
+  private finishTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly callbacks: DeepgramClientCallbacks;
 
   constructor(callbacks: DeepgramClientCallbacks) {
@@ -76,6 +80,15 @@ export class DeepgramClient {
     this.callbacks.onStatus(status, message);
   }
 
+  private resolveFinishing(): void {
+    if (this.finishTimeout !== null) clearTimeout(this.finishTimeout);
+    this.finishTimeout = null;
+    const resolve = this.finishResolve;
+    this.finishResolve = null;
+    this.finishingPromise = null;
+    resolve?.();
+  }
+
   private removeSocket(socket: WebSocket): void {
     socket.onopen = null;
     socket.onmessage = null;
@@ -84,7 +97,10 @@ export class DeepgramClient {
     if (socket.readyState !== WebSocket.CLOSED && socket.readyState !== WebSocket.CLOSING) {
       socket.close();
     }
-    if (this.socket === socket) this.socket = null;
+    if (this.socket === socket) {
+      this.socket = null;
+      this.resolveFinishing();
+    }
   }
 
   /** Connect only on a user action; no microphone audio is started here. */
@@ -217,6 +233,7 @@ export class DeepgramClient {
 
   /** Call only with encoded 16-bit little-endian PCM frames, not Int16Array. */
   sendAudio(audio: ArrayBuffer): void {
+    if (this.finishingPromise) throw new Error("Deepgram stream is finishing.");
     const socket = this.socket;
     if (!socket || socket.readyState !== WebSocket.OPEN || this.status !== "connected") {
       throw new Error("Deepgram is not ready for audio.");
@@ -230,6 +247,34 @@ export class DeepgramClient {
     socket.send(audio);
   }
 
+  /**
+   * Ask Deepgram to process buffered audio and send final Results before it
+   * closes the stream. Messages continue to flow to onMessage while waiting.
+   * A timeout prevents Stop from hanging on a broken network.
+   */
+  finish(): Promise<void> {
+    if (this.finishingPromise) return this.finishingPromise;
+    const socket = this.socket;
+    if (!socket || socket.readyState !== WebSocket.OPEN || this.status !== "connected") {
+      this.disconnect();
+      return Promise.resolve();
+    }
+
+    let resolvePending!: () => void;
+    const pending = new Promise<void>((resolve) => { resolvePending = resolve; });
+    this.finishingPromise = pending;
+    this.finishResolve = resolvePending;
+    this.finishTimeout = setTimeout(() => this.disconnect(), STREAM_FINISH_TIMEOUT_MS);
+    try {
+      // CloseStream tells Deepgram to flush remaining audio before closing.
+      // Do NOT close the socket here: the final transcript may arrive later.
+      socket.send(JSON.stringify({ type: "CloseStream" }));
+    } catch {
+      this.disconnect();
+    }
+    return pending;
+  }
+
   /** Stops both an in-flight connection and an open WebSocket. */
   disconnect(): void {
     this.generation++;
@@ -239,6 +284,7 @@ export class DeepgramClient {
     this.pendingConnectionReject = null;
     this.connecting = false;
     if (this.socket) this.removeSocket(this.socket);
+    this.resolveFinishing();
     this.report("disconnected", "Deepgram session stopped.");
   }
 }
