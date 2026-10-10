@@ -76,7 +76,7 @@ JSON: `id`, `category`, `subtype`, `label`, `score`, `audio_time`, `severity`, a
 UTC/source/raw-class contract described in CLAUDE.md. The frontend records local
 receipt time for display; it is not the precise time the sound occurred.
 
-Defaults remain 0.5 for all thresholds, 5-second cooldowns for siren/doorbell/horn,
+Thresholds are 0.3 for barking and 0.5 for siren/doorbell/horn, with 5-second cooldowns for siren/doorbell/horn,
 and 10 seconds for barking. A continuous sound can alert again when its cooldown
 expires; occurrence grouping is not implemented. Speech results remain diagnostic
 only. Speech sessions, Deepgram, browser/system notifications, and lock-screen

@@ -1,10 +1,17 @@
 
 import math
+import pytest
 
 from app.events.sound_notifications import (
     SoundNotificationFilter,
     default_config,
 )
+
+
+@pytest.mark.parametrize("score,accepted", [(0.29, False), (0.3, True), (0.31, True)])
+def test_barking_threshold(score, accepted):
+    event = SoundNotificationFilter().process("dog", score, 0.0, "bark")
+    assert (event is not None) is accepted
 
 
 def test_above_threshold():

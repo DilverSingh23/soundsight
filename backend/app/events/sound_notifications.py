@@ -36,7 +36,7 @@ def default_config() -> dict[str, CategoryConfig]:
             },
         ),
         "dog": CategoryConfig(
-            threshold=0.5,
+            threshold=0.3,
             cooldown=10.0,
             severity="ambient",
             labels={
