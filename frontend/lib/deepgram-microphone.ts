@@ -73,8 +73,10 @@ export function startDeepgramMicrophone(
   function fail(message: string): void {
     if (!active) return;
     active = false;
-    release();
+    // Notify the owner before disconnecting; otherwise the socket close
+    // callback can hide the microphone permission / audio delivery error.
     callbacks.onStatus("error", message);
+    release();
   }
 
   function stop(): void {
