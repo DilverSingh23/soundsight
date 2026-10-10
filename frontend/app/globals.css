@@ -1,26 +1,94 @@
 @import "tailwindcss";
 
+/* Shared tokens derived from the six SoundSight mobile screen designs. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --background: #fbf9f6;
+  --foreground: #27213e;
+  --surface: #fffefd;
+  --surface-muted: #ede8f9;
+  --outline: #e6e1ec;
+  --muted: #756e86;
+
+  --brand: #8e5ce9;
+  --brand-deep: #7040bb;
+  --brand-soft: #e9e0fa;
+
+  --critical: #f26479;
+  --important: #8f67e9;
+  --ambient: #777b9f;
+
+  --plum: #16132d;
+  --plum-panel: #292346;
+  --caption: #191a3a;
+  --light-on-dark: #f8f7ff;
+  --muted-on-dark: #bcb6d3;
+
+  --gradient-primary: linear-gradient(135deg, var(--brand), var(--brand-deep));
+  --gradient-home: radial-gradient(circle at 75% 18%, #55427e 0%, #292347 35%, var(--plum) 75%);
+  --gradient-alerts: linear-gradient(180deg, #dfd6f5 0%, #fbf9f6 46%);
+  --gradient-speak: linear-gradient(180deg, #fbf9f6 15%, #f0eafa 100%);
+
+  --font-editorial: "Iowan Old Style", Baskerville, "Palatino Linotype", Georgia, serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-outline: var(--outline);
+  --color-muted: var(--muted);
+  --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-soft: var(--brand-soft);
+  --color-critical: var(--critical);
+  --color-important: var(--important);
+  --color-ambient: var(--ambient);
+  --color-plum: var(--plum);
+  --color-plum-panel: var(--plum-panel);
+  --color-caption: var(--caption);
+  --color-light-on-dark: var(--light-on-dark);
+  --color-muted-on-dark: var(--muted-on-dark);
+
+  --font-sans: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --font-display: var(--font-editorial);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  min-height: 100dvh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+::selection {
+  background: var(--brand-soft);
+  color: var(--foreground);
+}
+
+:where(a, button, input, textarea, select):focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Shared preference: stronger text and outline contrast across light/dark routes. */
+.soundsight-shell[data-high-contrast="true"] {
+  --foreground: #150b24;
+  --muted: #483958;
+  --outline: #79678d;
+  --brand-deep: #552a8b;
+  --muted-on-dark: #e7e1fa;
+  --light-on-dark: #ffffff;
 }
