@@ -3,12 +3,26 @@ import math
 import struct
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import SOUNDSIGHT_ALLOWED_ORIGINS
+from app.deepgram_auth import router as deepgram_router
 
 from app.tts import router as tts_router
 
 app = FastAPI(title="SoundSight API")
 
+# Allow specified frontend origins to call the token API in development.
+# This is NOT authentication; protect the token endpoint before deploying.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=SOUNDSIGHT_ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
+
 app.include_router(tts_router)
+app.include_router(deepgram_router)
 
 
 @app.get("/health")
