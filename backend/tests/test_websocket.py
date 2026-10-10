@@ -25,6 +25,7 @@ def test_invalid_messages_do_not_end_connection():
 def start_audio(websocket):
     websocket.send_json({"type": "start", "encoding": "pcm_s16le", "sample_rate": 16000, "channels": 1})
     assert websocket.receive_json() == {"type": "ready"}
+    assert websocket.receive_json()["type"] == "classification_status"
 
 
 def test_pcm_levels_and_counters_reset_on_reconnect():

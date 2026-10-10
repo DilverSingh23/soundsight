@@ -25,7 +25,7 @@ available for connection checks. To stream audio:
 5. Close the WebSocket to stop. Disconnecting releases session state.
 
 Malformed input returns `{"type":"error","message":"..."}`. Audio is processed
-only to calculate reception statistics, then discarded; no recording is saved.
+for reception statistics and optional YAMNet inference; no recording is saved.
 RMS and peak prove a signal is present, not sound classification or transcription.
 
 Run tests from `backend/` with the environment activated:
@@ -34,7 +34,7 @@ Run tests from `backend/` with the environment activated:
 python -m pytest
 ```
 
-## Local YAMNet setup
+## Local YAMNet diagnostics
 
 Use the same Python 3.13 `.venv` for the entire backend, including TensorFlow.
 From `backend/`:
@@ -49,6 +49,18 @@ YAMNET_MODEL_DIR=.models/yamnet python -m uvicorn app.main:app --reload
 
 The model and environment are ignored by Git. The download requires internet;
 inference runs locally afterward. You can also set `YAMNET_MODEL_DIR` in `.env`.
+
+Each stream buffers 0.975-second windows with 0.48-second hops. PCM samples are
+normalized into float32 values before inference. The model is loaded and warmed
+up once at startup; inference runs off the async event loop. Each connection
+keeps only the newest pending window if classification falls behind.
+
+After `ready`, the server sends `classification_status` (`ready`, `disabled`,
+or `error`). Enabled streams also receive `classification` messages containing
+`window_start`, `window_end` (seconds since streaming began), `inference_ms`, and
+`results`: category, subtype, score, and raw YAMNet class name. These are
+diagnostics for speech, sirens, doorbells, barking, and horns, not notifications
+or confirmed detections. A model failure leaves audio reception active.
 
 The wrapper reads the model's 521-class label map rather than hardcoding score
 indexes. Embeddings and spectrograms are unused. Notification thresholds,
