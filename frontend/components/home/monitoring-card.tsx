@@ -28,7 +28,7 @@ export default function MonitoringCard() {
         </div>
       </div>
       <ConnectionControls buttonsOnly />
-      {active && <p className="mt-3 text-xs text-[#c1b9d7]">Listening continues across screens. Captions and sound detection are not connected yet.</p>}
+      {active && <p className="mt-3 text-xs text-[#c1b9d7]">Listening continues across screens. Sound alerts require YAMNet to be ready. Live captions and lock-screen push are not connected yet.</p>}
     </section>
   );
 }

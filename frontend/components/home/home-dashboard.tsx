@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ConnectionControls from "@/components/connection-controls";
+import LiveSoundEvents from "@/components/alerts/live-sound-events";
 import NavigationIcon from "@/components/navigation/navigation-icon";
 import MonitoringCard from "./monitoring-card";
 import Nightscape from "./nightscape";
@@ -92,6 +93,7 @@ export default function HomeDashboard() {
           </div>
         </div>
 
+        <LiveSoundEvents limit={5} />
         <section aria-labelledby="recent-activity-title" className="mt-7">
           <div className="flex items-center justify-between gap-3">
             <h2 id="recent-activity-title" className="text-lg font-semibold">Recent activity</h2>

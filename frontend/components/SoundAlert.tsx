@@ -4,12 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { demoSounds } from "@/components/alerts/demo-sounds";
 import AlertIcon, { type SoundKind } from "@/components/alerts/alert-icon";
+import LiveSoundEvents from "@/components/alerts/live-sound-events";
 import SeverityBadge, {
   type SoundSeverity,
 } from "@/components/ui/severity-badge";
 
-// The backend will eventually supply real SoundEvent objects. Until then, this
-// list is explicitly sample data; no microphone or detection is running here.
+// Sample activity is kept separate from the live recognized-sounds feed.
 type AlertItem = {
   id: string;
   kind: SoundKind;
@@ -114,6 +114,7 @@ export default function SoundAlerts() {
       </header>
 
       <div className="flex flex-1 flex-col px-5 pb-9 pt-5">
+        <LiveSoundEvents />
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
@@ -134,7 +135,7 @@ export default function SoundAlerts() {
         </div>
 
         <p className="mt-3 text-[11px] leading-relaxed text-muted">
-          Demo preview only. Real sound detection is not connected yet.
+          The sample activity below is separate from recognized sounds above.
         </p>
 
         {visibleAlerts.length > 0 ? (
