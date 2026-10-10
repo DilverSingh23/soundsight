@@ -7,6 +7,7 @@ import {
   useSoundSightPreferences,
   type VoiceLocale,
 } from "@/lib/preferences";
+import { speakWithElevenLabs } from "@/lib/text-to-speech";
 
 const MAX_CHARACTERS = 500;
 const DEFAULT_MESSAGE = "Hi! I’m hard of hearing. Could you please face me when you speak?";
@@ -38,9 +39,11 @@ export default function TypeToSpeak() {
   const [notice, setNotice] = useState("");
   const [lastSpoken, setLastSpoken] = useState("");
   const activeUtterance = useRef<SpeechSynthesisUtterance | null>(null);
+  const stopActive = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     return () => {
+      stopActive.current?.();
       if (activeUtterance.current && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
         activeUtterance.current = null;
@@ -49,6 +52,8 @@ export default function TypeToSpeak() {
   }, []);
 
   function stopSpeaking() {
+    stopActive.current?.();
+    stopActive.current = null;
     if (activeUtterance.current && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
@@ -57,15 +62,12 @@ export default function TypeToSpeak() {
     setNotice("Speech stopped.");
   }
 
-  function speak(textToSpeak = message) {
-    const text = textToSpeak.trim();
-    if (!text) {
-      setNotice("Type a message or choose a quick phrase first.");
-      return;
-    }
+  // Browser speechSynthesis fallback — used when the backend/ElevenLabs request
+  // fails, so type-to-speak never hangs (CLAUDE.md section 10).
+  function speakWithBrowser(text: string) {
     if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
       setPlayback("error");
-      setNotice("Speech playback is not supported in this browser.");
+      setNotice("Voice playback is unavailable in this browser.");
       return;
     }
 
@@ -80,27 +82,56 @@ export default function TypeToSpeak() {
     if (matchingVoice) utterance.voice = matchingVoice;
 
     activeUtterance.current = utterance;
-    setLastSpoken(text);
-    setNotice("Starting voice playback…");
+    stopActive.current = () => synthesizer.cancel();
     setPlayback("speaking");
+    setNotice("Voice playback unavailable; using device voice instead.");
 
     utterance.onstart = () => {
-      if (activeUtterance.current === utterance) setNotice("Speaking your message");
+      if (activeUtterance.current === utterance) setNotice("Speaking your message (device voice)");
     };
     utterance.onend = () => {
       if (activeUtterance.current !== utterance) return;
       activeUtterance.current = null;
+      stopActive.current = null;
       setPlayback("finished");
       setNotice("Message finished.");
     };
     utterance.onerror = (event) => {
       if (activeUtterance.current !== utterance) return;
       activeUtterance.current = null;
+      stopActive.current = null;
       if (event.error === "canceled" || event.error === "interrupted") return;
       setPlayback("error");
       setNotice("Playback failed. Try another browser or device voice.");
     };
     synthesizer.speak(utterance);
+  }
+
+  function speak(textToSpeak = message) {
+    const text = textToSpeak.trim();
+    if (!text) {
+      setNotice("Type a message or choose a quick phrase first.");
+      return;
+    }
+
+    stopActive.current?.();
+    stopActive.current = null;
+    setLastSpoken(text);
+    setPlayback("speaking");
+    setNotice("Connecting to voice playback…");
+
+    stopActive.current = speakWithElevenLabs(text, preferences.speakingRate, {
+      onStart: () => setNotice("Speaking your message"),
+      onEnd: () => {
+        stopActive.current = null;
+        setPlayback("finished");
+        setNotice("Message finished.");
+      },
+      onError: () => {
+        stopActive.current = null;
+        speakWithBrowser(text);
+      },
+    });
   }
 
   const prefersLargeText = preferences.textSize === "large";
@@ -202,7 +233,7 @@ export default function TypeToSpeak() {
         )}
       </section>
 
-      <p className="mt-4 text-[11px] leading-relaxed text-muted">Voice playback uses your browser’s speech engine, which may provide device or network voices. ElevenLabs integration comes later.</p>
+      <p className="mt-4 text-[11px] leading-relaxed text-muted">Voice playback uses ElevenLabs when the backend is reachable, falling back to your browser’s built-in speech engine otherwise.</p>
     </main>
   );
 }

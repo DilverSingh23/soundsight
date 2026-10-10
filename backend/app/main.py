@@ -3,10 +3,20 @@ import math
 import struct
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import FRONTEND_ORIGIN
 from app.tts import router as tts_router
 
 app = FastAPI(title="SoundSight API")
+
+# Only the type-to-speak fetch needs this; the microphone WebSocket isn't CORS-gated.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[FRONTEND_ORIGIN],
+    allow_methods=["POST"],
+    allow_headers=["Content-Type"],
+)
 
 app.include_router(tts_router)
 
