@@ -1,14 +1,19 @@
-import SoundAlerts from "../../components/SoundAlert";
-import BackendStatus from "../../components/BackendStatus";
+import SoundAlerts from "@/components/SoundAlert";
+import BackendStatus from "@/components/BackendStatus";
 
 export default function AlertsPage() {
   return (
-    <main className="min-h-screen bg-white text-gray-900">
-      <div className="mx-auto max-w-xl px-5 pt-5">
-        <BackendStatus />
-      </div>
-
+    <main className="flex min-h-full flex-1 flex-col bg-background text-foreground">
       <SoundAlerts />
+      <details className="mx-5 mb-8 rounded-2xl border border-outline bg-surface px-4 py-3 text-foreground">
+        <summary className="min-h-11 cursor-pointer py-3 text-xs font-medium text-muted">
+          Backend connection diagnostics
+        </summary>
+        <p className="mb-3 text-xs leading-relaxed text-muted">
+          Connectivity status is separate from environmental sound detection.
+        </p>
+        <BackendStatus />
+      </details>
     </main>
   );
 }
