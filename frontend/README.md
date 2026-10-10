@@ -11,10 +11,22 @@ the development server after changing it. For deployment, set the public URL
 before building; an HTTPS frontend needs a `wss://` backend URL. This variable
 contains a public address, never an API key.
 
-Click **Connect** to open a WebSocket and send a ping. The page should show
-**Connected** and a pong acknowledgment. Click **Disconnect**, then reconnect.
-Stop the backend while connected to check the disconnected/error message;
-restart it and click **Connect** again. Microphone capture is not implemented yet.
+Click **Start Listening**, allow microphone access, and wait for **Listening**.
+The backend's chunk and byte counts should increase; RMS and peak readings should
+rise when speaking and fall when quiet. Counts alone only prove data delivery.
+Click **Stop Listening** and confirm the browser microphone indicator turns off
+and counters stop. Repeat Start/Stop, deny permission, stop the backend while
+listening, and cancel while permission is pending (any late granted stream must
+be released). Microphone access needs localhost or HTTPS; plain HTTP over a LAN
+address does not qualify. No audio is persisted or sent to AI providers yet.
+
+Audio capture uses `@picovoice/web-voice-processor` to produce mono 16 kHz
+signed 16-bit samples in 1600-sample (100 ms) frames. The frontend serializes
+these as little-endian PCM and sends them over WebSocket. The library owns its
+AudioWorklet and resampler; there is no custom worklet asset to maintain.
+Its standard microphone constraints are used, so browser/device audio processing
+settings may differ. Test environmental sounds on the intended demo devices.
+This implementation targets an open, active browser tab.
 
 First, run the development server:
 
@@ -48,3 +60,15 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Audio pipeline tests
+
+With Node.js 22.18+ or 24+, run from `frontend/`:
+
+```bash
+node --test tests/*.test.mjs
+```
+
+These tests check PCM byte serialization and microphone lifecycle using
+simulated browser resources. Real microphone permission, browser resampling, and
+audio quality still require the manual checks above.
