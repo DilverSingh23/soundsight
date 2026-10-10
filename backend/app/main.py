@@ -1,4 +1,8 @@
+import asyncio
+from contextlib import asynccontextmanager, suppress
 import json
+import os
+import time
 import math
 import struct
 
@@ -8,7 +12,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import FRONTEND_ORIGIN
 from app.tts import router as tts_router
 
-app = FastAPI(title="SoundSight API")
+from app.audio.windows import AudioWindowBuffer
+from app.audio.yamnet import YamnetClassifier
+from app.events.sound_notifications import SoundNotificationFilter
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.classifier = None
+    app.state.inference_lock = asyncio.Lock()
+    model_directory = os.getenv("YAMNET_MODEL_DIR", "")
+    app.state.classification_status = {"type": "classification_status", "state": "disabled", "message": "YAMNet is not configured."}
+    if model_directory:
+        try:
+            app.state.classifier = await asyncio.to_thread(YamnetClassifier, model_directory)
+            app.state.classification_status = {"type": "classification_status", "state": "ready", "message": "YAMNet classification diagnostics enabled."}
+        except Exception:
+            app.state.classification_status = {"type": "classification_status", "state": "error", "message": "YAMNet could not load. Check model path and Python dependencies."}
+    yield
+    app.state.classifier = None
+
+
+app = FastAPI(title="SoundSight API", lifespan=lifespan)
 
 # Only the type-to-speak fetch needs this; the microphone WebSocket isn't CORS-gated.
 app.add_middleware(
@@ -36,8 +61,55 @@ async def listen(websocket: WebSocket):
     peak = 0.0
     interval_samples = 0
 
+    windows = AudioWindowBuffer()
+    notification_filter = SoundNotificationFilter()
+    pending = asyncio.Queue(maxsize=1)
+    send_lock = asyncio.Lock()
+    classifier_task = None
+
+    async def send(event: dict):
+        async with send_lock:
+            await websocket.send_json(event)
+
+    async def classify_windows():
+        try:
+            while True:
+                window = await pending.get()
+                async with app.state.inference_lock:
+                    began = time.perf_counter()
+                    inference = asyncio.create_task(asyncio.to_thread(app.state.classifier.classify, window.pcm))
+                    try:
+                        results = await asyncio.shield(inference)
+                    except asyncio.CancelledError:
+                        # A running TensorFlow call cannot be canceled; retain the
+                        # shared lock until it exits before releasing this session.
+                        with suppress(Exception):
+                            await inference
+                        raise
+                await send({
+                    "type": "classification",
+                    "window_start": window.start_seconds,
+                    "window_end": window.end_seconds,
+                    "inference_ms": round((time.perf_counter() - began) * 1000, 1),
+                    "results": results,
+                })
+                for result in results:
+                    event = notification_filter.process(
+                        category=result["category"],
+                        score=result["score"],
+                        audio_time=window.end_seconds,
+                        subtype=result["subtype"],
+                    )
+                    if event is not None:
+                        await send(event)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            with suppress(Exception):
+                await send({"type": "classification_status", "state": "error", "message": "Sound classification stopped; audio reception remains active."})
+
     async def error(message: str):
-        await websocket.send_json({"type": "error", "message": message})
+        await send({"type": "error", "message": message})
 
     try:
         while True:
@@ -53,6 +125,12 @@ async def listen(websocket: WebSocket):
                 if not audio or len(audio) % 2 or len(audio) > 32000:
                     await error("Audio must contain 1–16000 signed 16-bit PCM samples.")
                     continue
+                if classifier_task is not None and not classifier_task.done():
+                    for window in windows.feed(audio):
+                        # Keep only the newest pending window if inference falls behind.
+                        if pending.full():
+                            pending.get_nowait()
+                        pending.put_nowait(window)
                 chunks += 1
                 total_bytes += len(audio)
                 for (sample,) in struct.iter_unpack("<h", audio):
@@ -62,7 +140,7 @@ async def listen(websocket: WebSocket):
                 interval_samples += len(audio) // 2
                 # Report levels over ~500 ms instead of rendering every audio chunk.
                 if interval_samples >= 8000:
-                    await websocket.send_json({
+                    await send({
                         "type": "audio_stats",
                         "chunks": chunks,
                         "bytes": total_bytes,
@@ -82,7 +160,7 @@ async def listen(websocket: WebSocket):
             if not isinstance(message, dict):
                 await error("Expected a JSON object.")
             elif message.get("type") == "ping":
-                await websocket.send_json({"type": "pong"})
+                await send({"type": "pong"})
             elif message.get("type") == "start":
                 if streaming:
                     await error("Audio stream already started.")
@@ -93,8 +171,16 @@ async def listen(websocket: WebSocket):
                     await error("Expected mono 16 kHz pcm_s16le audio.")
                 else:
                     streaming = True
-                    await websocket.send_json({"type": "ready"})
+                    await send({"type": "ready"})
+                    await send(app.state.classification_status)
+                    if app.state.classifier is not None:
+                        classifier_task = asyncio.create_task(classify_windows())
             else:
                 await error("Expected a ping or start message.")
     except WebSocketDisconnect:
         pass
+    finally:
+        if classifier_task is not None:
+            classifier_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await classifier_task

@@ -1,12 +1,18 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { startMicrophoneStream, type AudioStats, type ListeningStatus } from "@/lib/microphone-stream";
+import { startMicrophoneStream, type AudioStats, type ListeningStatus, type Classification, type ClassificationStatus, type SoundEvent } from "@/lib/microphone-stream";
+
+type ReceivedSoundEvent = SoundEvent & { receivedAt: string };
 
 type ListeningState = {
   status: ListeningStatus;
   message: string;
   stats: AudioStats | null;
+  classification: Classification | null;
+  classificationStatus: ClassificationStatus | null;
+  soundEvents: ReceivedSoundEvent[];
+  clearSoundEvents: () => void;
   active: boolean;
   start: () => void;
   stop: () => void;
@@ -22,6 +28,10 @@ export function ListeningProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState("");
   const [stats, setStats] = useState<AudioStats | null>(null);
 
+  const [classification, setClassification] = useState<Classification | null>(null);
+  const [classificationStatus, setClassificationStatus] = useState<ClassificationStatus | null>(null);
+  const [soundEvents, setSoundEvents] = useState<ReceivedSoundEvent[]>([]);
+
   useEffect(() => () => {
     generation.current++;
     activeRef.current = false;
@@ -34,12 +44,26 @@ export function ListeningProvider({ children }: { children: ReactNode }) {
     activeRef.current = true;
     const session = ++generation.current;
     setStats(null);
+    setClassification(null);
+    setClassificationStatus(null);
     cleanupRef.current = startMicrophoneStream({
       onStatus(next, detail) {
         if (session !== generation.current) return;
         activeRef.current = next !== "Stopped" && next !== "Error";
         setStatus(next);
         setMessage(detail);
+      },
+      onClassification(next) {
+        if (session === generation.current) setClassification(next);
+      },
+      onClassificationStatus(next) {
+        if (session === generation.current) setClassificationStatus(next);
+      },
+      onSoundEvent(next) {
+        if (session !== generation.current) return;
+        const received = { ...next, receivedAt: new Date().toISOString() };
+        setSoundEvents((previous) => previous.some((event) => event.id === next.id)
+          ? previous : [received, ...previous].slice(0, 100));
       },
       onStats(next) {
         if (session === generation.current) setStats(next);
@@ -57,7 +81,7 @@ export function ListeningProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ListeningContext.Provider value={{ status, message, stats, active: status !== "Stopped" && status !== "Error", start, stop }}>
+    <ListeningContext.Provider value={{ status, message, stats, classification, classificationStatus, soundEvents, clearSoundEvents: () => setSoundEvents([]), active: status !== "Stopped" && status !== "Error", start, stop }}>
       {children}
     </ListeningContext.Provider>
   );
