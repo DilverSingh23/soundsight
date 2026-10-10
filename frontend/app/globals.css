@@ -82,3 +82,13 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Shared preference: stronger text and outline contrast across light/dark routes. */
+.soundsight-shell[data-high-contrast="true"] {
+  --foreground: #150b24;
+  --muted: #483958;
+  --outline: #79678d;
+  --brand-deep: #552a8b;
+  --muted-on-dark: #e7e1fa;
+  --light-on-dark: #ffffff;
+}

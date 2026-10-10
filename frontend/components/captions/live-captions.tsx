@@ -2,16 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Waveform from "./waveform";
+import { updateSoundSightPreferences, useSoundSightPreferences } from "@/lib/preferences";
 
 type PreviewState = "playing" | "paused" | "stopped";
-type TextSize = "small" | "regular" | "large";
+import type { TranscriptTextSize } from "@/lib/preferences";
 
-const FONT_SIZES: Record<TextSize, string> = {
+const FONT_SIZES: Record<TranscriptTextSize, string> = {
   small: "text-[23px] leading-[1.35]",
   regular: "text-[28px] leading-[1.34]",
   large: "text-[33px] leading-[1.28]",
 };
-const TEXT_SIZE_ORDER: readonly TextSize[] = ["small", "regular", "large"];
+const TEXT_SIZE_ORDER: readonly TranscriptTextSize[] = ["small", "regular", "large"];
 
 function formatDuration(seconds: number) {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -50,7 +51,7 @@ function ControlIcon({ type }: { type: "pause" | "play" | "stop" }) {
 export default function LiveCaptions() {
   const [preview, setPreview] = useState<PreviewState>("playing");
   const [elapsedSeconds, setElapsedSeconds] = useState(24);
-  const [textSize, setTextSize] = useState<TextSize>("regular");
+  const { textSize } = useSoundSightPreferences();
 
   useEffect(() => {
     if (preview !== "playing") return;
@@ -66,7 +67,7 @@ export default function LiveCaptions() {
 
   function changeSize(direction: -1 | 1) {
     const next = TEXT_SIZE_ORDER[sizeIndex + direction];
-    if (next) setTextSize(next);
+    if (next) updateSoundSightPreferences({ textSize: next });
   }
 
   function resetPreview() {
