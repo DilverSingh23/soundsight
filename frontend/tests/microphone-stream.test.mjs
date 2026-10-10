@@ -4,7 +4,7 @@ import { startMicrophoneStream, encodePCMFrame } from "../lib/microphone-stream.
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
-function setup(t, pending = false) {
+function setup(t, pending = false, extraCallbacks = {}) {
   const statuses = [];
   const stats = [];
   const classifications = [];
@@ -39,7 +39,7 @@ function setup(t, pending = false) {
     Object.defineProperty(globalThis, name, { configurable: true, value });
     t.after(() => { if (previous) Object.defineProperty(globalThis, name, previous); else delete globalThis[name]; });
   }
-  const stop = startMicrophoneStream({ onStatus: (status) => statuses.push(status), onStats: (value) => stats.push(value), onClassification: (value) => classifications.push(value), onClassificationStatus: (value) => classificationStatuses.push(value), onSoundEvent: (value) => soundEvents.push(value) }, async () => capture);
+  const stop = startMicrophoneStream({ onStatus: (status) => statuses.push(status), onStats: (value) => stats.push(value), onClassification: (value) => classifications.push(value), onClassificationStatus: (value) => classificationStatuses.push(value), onSoundEvent: (value) => soundEvents.push(value), ...extraCallbacks }, async () => capture);
   t.after(stop);
   return { stop, track, sockets, contexts, nodes, statuses, stats, classifications, classificationStatuses, soundEvents, grant: () => grant() };
 }
@@ -133,4 +133,30 @@ test("approved sound events reach the listener while audio keeps streaming", asy
   env.nodes[0].send(new Int16Array(1600));
   assert.equal(socket.sent[1].byteLength, 3200);
   assert.equal(env.statuses.at(-1), "Listening");
+});
+
+test("shared capture waits for transcription setup and forwards the identical PCM buffer", async (t) => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const forwarded = [];
+  const env = setup(t, false, { beforeCapture: () => gate, onAudio: (audio) => forwarded.push(audio) });
+  const socket = await connect(env);
+  assert.equal(env.nodes.length, 0);
+  release();
+  await tick();
+  assert.equal(env.nodes.length, 1);
+  env.nodes[0].send(new Int16Array(1600).fill(123));
+  assert.equal(forwarded[0], socket.sent[1]);
+  assert.equal(new DataView(forwarded[0]).getInt16(0, true), 123);
+});
+
+test("Stop while waiting for transcription does not start a late microphone capture", async (t) => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const env = setup(t, false, { beforeCapture: () => gate });
+  await connect(env);
+  env.stop();
+  release();
+  await tick();
+  assert.equal(env.nodes.length, 0);
 });

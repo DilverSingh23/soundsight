@@ -78,11 +78,27 @@ receipt time for display; it is not the precise time the sound occurred.
 
 Thresholds are 0.3 for barking and 0.5 for siren/doorbell/horn, with 5-second cooldowns for siren/doorbell/horn,
 and 10 seconds for barking. A continuous sound can alert again when its cooldown
-expires; occurrence grouping is not implemented. Speech results remain diagnostic
-only. Speech sessions, Deepgram, browser/system notifications, and lock-screen
-Web Push are not included in this integration.
+expires; occurrence grouping is not implemented. YAMNet speech results remain
+diagnostic only; the frontend creates speech sessions from Deepgram transcripts.
+Browser/system notifications and lock-screen Web Push are not included.
 
 The wrapper reads the model's 521-class label map rather than hardcoding score
 indexes. Embeddings and spectrograms are unused. Notification settings live in
 `app/events/sound_notifications.py`; category mapping stays in `app/audio/yamnet.py`.
 The siren subtype score/margin rules are provisional diagnostic choices.
+
+## Deepgram captions
+
+Add `DEEPGRAM_API_KEY` to your backend `.env`, then restart the server. Never put
+the permanent key in frontend environment variables. `POST /deepgram/token`
+returns a short-lived token with `Cache-Control: no-store`; the browser uses that
+token to connect directly to Deepgram. FastAPI does not proxy transcription audio.
+The key needs permission to mint Deepgram tokens. For deployment, set
+`SOUNDSIGHT_ALLOWED_ORIGINS` to the exact frontend HTTPS origin and protect the
+token endpoint against unauthorized use; the current route has no authentication
+or rate limit, and CORS is not authentication.
+
+The browser sends the same mono 16 kHz PCM frames to `/ws/listen` and Deepgram.
+Transcription doesn't wait for YAMNet speech detection. Missing credentials or a
+Deepgram failure leave environmental streaming active and show captions as
+unavailable. Stop and restart listening to retry the failed transcription service.

@@ -3,7 +3,7 @@
 import { useListening } from "@/components/listening-provider";
 
 export default function ConnectionControls({ diagnosticsOnly = false, buttonsOnly = false }: { diagnosticsOnly?: boolean; buttonsOnly?: boolean }) {
-  const { status, message, stats, classification, classificationStatus, active, start, stop } = useListening();
+  const { status, message, stats, classification, classificationStatus, transcriptionMessage, active, start, stop } = useListening();
   const buttonClass = "min-h-12 rounded-lg border border-current px-5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
@@ -25,6 +25,7 @@ export default function ConnectionControls({ diagnosticsOnly = false, buttonsOnl
         </div>
       )}
       {!buttonsOnly && classificationStatus && <p className="mt-4 text-sm">YAMNet: {classificationStatus.message}</p>}
+      {!buttonsOnly && transcriptionMessage && <p className="mt-2 text-sm">Captions: {transcriptionMessage}</p>}
       {!buttonsOnly && classification && (
         <div className="mt-4 text-sm">
           <p className="font-semibold">Classification diagnostics — not notifications</p>
@@ -37,7 +38,7 @@ export default function ConnectionControls({ diagnosticsOnly = false, buttonsOnl
           <p className="mt-2">Scores are model estimates, not confirmed detections. Values shown are from the last analyzed window.</p>
         </div>
       )}
-      {!buttonsOnly && <p className="mt-6 text-sm">Audio is sent to the SoundSight backend while listening and is not saved. Keep this app open and active for sound alerts. Live captions and lock-screen push are not connected yet.</p>}
+      {!buttonsOnly && <p className="mt-6 text-sm">Audio is sent to the SoundSight backend for sound detection and to Deepgram for captions while listening. No raw audio is saved by this app. Keep it open and active. Lock-screen push is not connected yet.</p>}
     </section>
   );
 }
