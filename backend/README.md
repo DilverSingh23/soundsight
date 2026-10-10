@@ -3,7 +3,7 @@
 From `backend/`, create and activate a virtual environment, then install dependencies:
 
 ```bash
-python3 -m venv .venv
+python3.13 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --reload
@@ -33,3 +33,24 @@ Run tests from `backend/` with the environment activated:
 ```bash
 python -m pytest
 ```
+
+## Local YAMNet setup
+
+Use the same Python 3.13 `.venv` for the entire backend, including TensorFlow.
+From `backend/`:
+
+```bash
+python3.13 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python scripts/download_yamnet.py
+YAMNET_MODEL_DIR=.models/yamnet python -m uvicorn app.main:app --reload
+```
+
+The model and environment are ignored by Git. The download requires internet;
+inference runs locally afterward. You can also set `YAMNET_MODEL_DIR` in `.env`.
+
+The wrapper reads the model's 521-class label map rather than hardcoding score
+indexes. Embeddings and spectrograms are unused. Notification thresholds,
+cooldowns, speech sessions, and the teammate's filter are still separate work.
+The siren subtype score/margin rules are provisional diagnostic choices.
