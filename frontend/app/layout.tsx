@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ListeningProvider } from "@/components/listening-provider";
 import AppShell from "@/components/navigation/app-shell";
 import "./globals.css";
 
@@ -26,7 +27,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AppShell>{children}</AppShell>
+        <ListeningProvider>
+          <AppShell>{children}</AppShell>
+        </ListeningProvider>
       </body>
     </html>
   );

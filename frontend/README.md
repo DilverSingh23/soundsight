@@ -72,3 +72,17 @@ node --test tests/*.test.mjs
 These tests check PCM byte serialization and microphone lifecycle using
 simulated browser resources. Real microphone permission, browser resampling, and
 audio quality still require the manual checks above.
+
+## Shared listening across screens
+
+Start/Stop Listening is on the home monitoring card. The root layout owns one
+ListeningProvider, so navigating with the app links keeps the same microphone
+session running. Other screens show microphone status and a Stop Listening
+button while active. Audio reception diagnostics on Home use the same session.
+
+Manual integration check: start listening, confirm received audio counts, navigate
+to Captions and Alerts, and return Home. Counts should continue without resetting.
+Stop from another screen and confirm the browser microphone indicator turns off.
+Repeat Start/Stop and stop FastAPI while on Captions to check error handling.
+A full reload or closing the app ends the browser session. Caption preview controls
+operate only on sample content; live transcription and sound alerts are not wired.

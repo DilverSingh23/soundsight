@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useListening } from "@/components/listening-provider";
 import Waveform from "./waveform";
 import { updateSoundSightPreferences, useSoundSightPreferences } from "@/lib/preferences";
 
@@ -49,6 +50,7 @@ function ControlIcon({ type }: { type: "pause" | "play" | "stop" }) {
 
 /** The visual sample is local-only. Deepgram and microphone capture are added later. */
 export default function LiveCaptions() {
+  const { status } = useListening();
   const [preview, setPreview] = useState<PreviewState>("playing");
   const [elapsedSeconds, setElapsedSeconds] = useState(24);
   const { textSize } = useSoundSightPreferences();
@@ -129,7 +131,11 @@ export default function LiveCaptions() {
           SAMPLE TRANSCRIPT
         </div>
         <p className="mt-2 text-[11px] leading-relaxed text-[#b8b3d6]">
-          Preview only — your microphone is off. No speech is being transcribed.
+          {status === "Listening"
+            ? "Sample transcript — microphone audio is streaming, but live transcription is not connected yet."
+            : status === "Stopped" || status === "Error"
+              ? "Sample transcript — microphone streaming is off. No speech is being transcribed."
+              : "Sample transcript — microphone setup is in progress. No speech is being transcribed."}
         </p>
 
         <section

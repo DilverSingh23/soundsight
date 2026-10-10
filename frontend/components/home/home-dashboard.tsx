@@ -122,10 +122,10 @@ export default function HomeDashboard() {
 
         <details className="mt-5 rounded-2xl border border-white/10 text-sm text-[#c3b9d9]">
           <summary className="min-h-11 cursor-pointer px-4 py-3 font-medium">
-            Backend connection diagnostics
+            Audio reception diagnostics
           </summary>
           <div className="px-3 pb-3 text-white">
-            <ConnectionControls />
+            <ConnectionControls diagnosticsOnly />
           </div>
         </details>
       </div>

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { useListening } from "@/components/listening-provider";
 import BottomNavigation from "./bottom-navigation";
 import { useSoundSightPreferences } from "@/lib/preferences";
 
@@ -12,6 +13,7 @@ type AppShellProps = {
 /** A shared mobile canvas; routes choose their Figma light/dark presentation. */
 export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
+  const { status, active, stop } = useListening();
   const { highContrast } = useSoundSightPreferences();
   const isHome = pathname === "/";
   const isCaptions = pathname === "/captions";
@@ -32,6 +34,12 @@ export default function AppShell({ children }: AppShellProps) {
       data-high-contrast={highContrast ? "true" : "false"}
     >
       <div className="flex min-h-0 flex-1 flex-col pb-[calc(84px+env(safe-area-inset-bottom))]">
+        {!isHome && (active || status === "Error") && (
+          <div className="flex items-center justify-between gap-3 border-b border-current/20 px-5 py-3 text-sm">
+            <span role="status">Microphone: {status}</span>
+            {active && <button type="button" onClick={stop} className="min-h-11 rounded-xl border border-current px-3 font-semibold">Stop Listening</button>}
+          </div>
+        )}
         {children}
       </div>
       <BottomNavigation theme={isDark ? "dark" : "light"} />
