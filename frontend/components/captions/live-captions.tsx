@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useListening } from "@/components/listening-provider";
-import { useDeepgram } from "@/hooks/use-deepgram";
+import { emptyDeepgramTranscript } from "@/lib/deepgram-transcript";
+import SpeechSessionHistory from "@/components/captions/speech-session-history";
 import Waveform from "./waveform";
 import { updateSoundSightPreferences, useSoundSightPreferences, type TranscriptTextSize } from "@/lib/preferences";
 
@@ -31,76 +32,29 @@ function ControlIcon({ type }: { type: "play" | "stop" }) {
 
 /** Captions are live only after Start Listening, never a silent sample preview. */
 export default function LiveCaptions() {
-  const { claimCaptionsMicrophone, releaseCaptionsMicrophone } = useListening();
-  const {
-    microphoneStatus, statusMessage, transcript,
-    startListening, stopListening, clearTranscript,
-  } = useDeepgram();
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [localError, setLocalError] = useState("");
+  const { status, active: isActive, stats, transcriptionStatus, transcriptionMessage,
+    speechSessions, start, stop, clearConversations } = useListening();
+  const conversationId = useSearchParams().get("conversation");
+  const selected = conversationId ? speechSessions.find((session) => session.id === conversationId) : speechSessions[0];
+  const transcript = selected?.transcript ?? emptyDeepgramTranscript();
+  const isListening = status === "Listening" && transcriptionStatus === "connected";
+  const isStarting = status === "Connecting" || status === "Requesting permission";
+  const isFinishing = status === "Finishing";
+  const captionError = transcriptionStatus === "error" || (status === "Listening" && transcriptionStatus === "disconnected");
+  const elapsedSeconds = stats?.duration_seconds ?? 0;
   const { textSize } = useSoundSightPreferences();
-
-  const isListening = microphoneStatus === "listening";
-  const isStarting = microphoneStatus === "connecting" || microphoneStatus === "requesting-permission";
-  const isFinishing = microphoneStatus === "finishing";
-  const isActive = isListening || isStarting || isFinishing;
   const sizeIndex = TEXT_SIZE_ORDER.indexOf(textSize);
   const finalParts = [...transcript.completedUtterances, ...transcript.currentFinalSegments];
   const hasTranscript = finalParts.length > 0 || transcript.interimText.length > 0;
-
-  useEffect(() => {
-    if (!isListening) return;
-  
-    const startedAt = Date.now();
-  
-    const interval = window.setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
-    }, 1000);
-  
-    return () => window.clearInterval(interval);
-  }, [isListening]);
-
-  // The transcript session releases capture on failure. Release the shared
-  // microphone reservation too so Home diagnostics can be used again.
-  useEffect(() => {
-    if (microphoneStatus === "error" || microphoneStatus === "stopped") {
-      releaseCaptionsMicrophone();
-    }
-  }, [microphoneStatus, releaseCaptionsMicrophone]);
-
-  useEffect(() => () => {
-    // useDeepgram itself closes Deepgram and Picovoice when this page unmounts.
-    releaseCaptionsMicrophone();
-  }, [releaseCaptionsMicrophone]);
 
   function changeSize(direction: -1 | 1) {
     const next = TEXT_SIZE_ORDER[sizeIndex + direction];
     if (next) updateSoundSightPreferences({ textSize: next });
   }
 
-  function start() {
-    if (isActive) return;
-    setLocalError("");
-    if (!claimCaptionsMicrophone()) {
-      setLocalError("The microphone is already in use. Stop the other session and retry.");
-      return;
-    }
-    setElapsedSeconds(0);
-    if (!startListening()) {
-      releaseCaptionsMicrophone();
-      setLocalError("Could not start live captions. Please try again.");
-    }
-  }
-
-  function stop() {
-    // Keep the reservation until CloseStream returns the last words.
-    // The status effect releases it once finishing ends.
-    stopListening();
-  }
-
-  const statusLabel = isListening ? "Listening" : isStarting ? "Starting" : isFinishing ? "Finishing" :
-    microphoneStatus === "error" ? "Error" : microphoneStatus === "stopped" ? "Stopped" : "Ready";
-  const detail = localError || statusMessage || "Tap Start Listening to transcribe nearby speech.";
+  const statusLabel = captionError ? "Captions unavailable" : isListening ? "Listening" : isStarting ? "Starting" : isFinishing ? "Finishing" : status === "Error" ? "Error" : "Ready";
+  const detail = conversationId && !selected ? "This conversation is no longer available in this tab."
+    : transcriptionMessage || "Start Listening on any screen to capture speech and environmental sounds together.";
 
   return (
     <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-caption px-5 pb-8 pt-[max(2.75rem,env(safe-area-inset-top))] text-light-on-dark">
@@ -113,9 +67,9 @@ export default function LiveCaptions() {
               <span aria-hidden="true">···</span>
             </summary>
             <div className="absolute right-0 top-full z-20 w-48 rounded-2xl border border-white/15 bg-[#303057] p-2 shadow-xl">
-              <button type="button" onClick={clearTranscript} disabled={!hasTranscript}
+              <button type="button" onClick={clearConversations} disabled={isActive || speechSessions.length === 0}
                 className="min-h-11 w-full rounded-xl px-3 text-left text-sm hover:bg-white/10 disabled:opacity-45">
-                Clear transcript
+                Clear conversation history
               </button>
             </div>
           </details>
@@ -123,8 +77,8 @@ export default function LiveCaptions() {
 
         <div className="mt-5 flex items-center justify-between gap-2 text-[11px] text-[#c2bfdc]">
           <div className="flex items-center gap-2" role="status" aria-live="polite">
-            <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${isListening ? "bg-[#81dec4]" : microphoneStatus === "error" ? "bg-[#ff8aa1]" : "bg-[#aaa1cb]"}`} />
-            <span className={`font-semibold ${microphoneStatus === "error" ? "text-[#ff8aa1]" : "text-[#a9e5d6]"}`}>{statusLabel}</span>
+            <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${isListening ? "bg-[#81dec4]" : captionError || status === "Error" ? "bg-[#ff8aa1]" : "bg-[#aaa1cb]"}`} />
+            <span className={`font-semibold ${captionError || status === "Error" ? "text-[#ff8aa1]" : "text-[#a9e5d6]"}`}>{statusLabel}</span>
             <span aria-hidden="true">·</span>
             <span>English</span>
           </div>
@@ -135,9 +89,9 @@ export default function LiveCaptions() {
 
         <div className="mt-6 flex items-center gap-2 text-[10px] font-semibold tracking-[0.13em] text-[#a9b8ff]">
           <span className="h-3 w-[2px] rounded-full bg-[#82a2ff]" />
-          LIVE TRANSCRIPT
+          {selected ? (selected.active ? "LIVE CONVERSATION" : "SAVED CONVERSATION") : "LIVE TRANSCRIPT"}
         </div>
-        <p className={`mt-2 text-[11px] leading-relaxed ${microphoneStatus === "error" || localError ? "text-[#ff9aaa]" : "text-[#b8b3d6]"}`} role={microphoneStatus === "error" || localError ? "alert" : "status"}>
+        <p className={`mt-2 text-[11px] leading-relaxed ${captionError || status === "Error" ? "text-[#ff9aaa]" : "text-[#b8b3d6]"}`} role={captionError || status === "Error" ? "alert" : "status"}>
           {detail}
         </p>
 
@@ -166,6 +120,8 @@ export default function LiveCaptions() {
           </div>
         </div>
 
+        <p className="mt-3 text-xs text-[#b8b3d6]">Captions continue while you browse other screens. Opening a conversation does not restart listening. Speech is sent to Deepgram; history stays in this tab until cleared or reloaded.</p>
+        <SpeechSessionHistory />
         <div className="mt-3 grid grid-cols-[1fr_auto] gap-3">
           <button type="button" onClick={start} disabled={isActive}
             className="flex min-h-[54px] items-center justify-center gap-2 rounded-[15px] bg-[#ebe6fa] px-4 font-semibold text-[#252044] hover:bg-white disabled:opacity-45">

@@ -18,7 +18,8 @@ Click **Stop Listening** and confirm the browser microphone indicator turns off
 and counters stop. Repeat Start/Stop, deny permission, stop the backend while
 listening, and cancel while permission is pending (any late granted stream must
 be released). Microphone access needs localhost or HTTPS; plain HTTP over a LAN
-address does not qualify. No audio is persisted or sent to AI providers yet.
+address does not qualify. No raw audio is persisted by this app. While configured
+and connected, microphone audio also goes to Deepgram for transcription.
 
 Audio capture uses `@picovoice/web-voice-processor` to produce mono 16 kHz
 signed 16-bit samples in 1600-sample (100 ms) frames. The frontend serializes
@@ -27,6 +28,42 @@ AudioWorklet and resampler; there is no custom worklet asset to maintain.
 Its standard microphone constraints are used, so browser/device audio processing
 settings may differ. Test environmental sounds on the intended demo devices.
 This implementation targets an open, active browser tab.
+
+## Combined listening and conversations
+
+Set `DEEPGRAM_API_KEY` in `backend/.env`, not in Next.js. The public backend HTTP
+address is `NEXT_PUBLIC_BACKEND_HTTP_URL` (default `http://localhost:8000`), while
+`NEXT_PUBLIC_BACKEND_WS_URL` configures environmental streaming. An HTTPS frontend
+needs HTTPS and WSS backend addresses and a matching allowed origin on FastAPI.
+
+Start Listening on Home or Captions opens one Picovoice capture session, after
+the backend and Deepgram connection attempt. Each encoded frame is sent to both
+destinations. Captions and sound detection continue across client-side navigation;
+the root `ListeningProvider` owns their lifecycle. Opening Captions never requests
+a second microphone or clears previously captured words.
+
+Non-empty Deepgram Results create a conversation and one in-app speech banner.
+Interim words replace earlier interim words; final segments are retained without
+duplicating repeated results. The opening preview updates until the first final
+segment, then stays fixed while the full transcript grows. Provider utterance
+boundaries don't end a conversation: a gap of five audio seconds without recognized
+speech closes it. Word timings are used when available; result duration is the
+fallback. This is a heuristic, not speaker identification or guaranteed speech
+detection. Different speakers can share a conversation.
+
+Click Read conversation or select a history entry to open
+`/captions?conversation=<id>`. Conversations stay in memory (at most 50) across
+listening sessions, until cleared while stopped or the tab reloads. No database
+or raw audio storage is added. Stop releases capture and the backend socket
+immediately, then waits up to 2.5 seconds for Deepgram to finalize trailing words.
+An app unmount terminates immediately. Deepgram failure leaves sound detection
+running; diagnostics show its status, and Stop/Start retries with a fresh token.
+
+Manual check: start on Home, speak before opening Captions, verify those words
+are already present, navigate away and back, speak through a short pause, then
+wait over five seconds and speak again. The latter should create a new conversation.
+Test Stop during permission/setup and during speech, plus missing-key/network
+failure. Capturing in a locked/background browser and OS push are not supported.
 
 First, run the development server:
 

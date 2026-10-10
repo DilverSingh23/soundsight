@@ -5,6 +5,7 @@ import Link from "next/link";
 import { demoSounds } from "@/components/alerts/demo-sounds";
 import AlertIcon, { type SoundKind } from "@/components/alerts/alert-icon";
 import LiveSoundEvents from "@/components/alerts/live-sound-events";
+import SpeechSessionHistory from "@/components/captions/speech-session-history";
 import SeverityBadge, {
   type SoundSeverity,
 } from "@/components/ui/severity-badge";
@@ -115,6 +116,7 @@ export default function SoundAlerts() {
 
       <div className="flex flex-1 flex-col px-5 pb-9 pt-5">
         <LiveSoundEvents />
+        <SpeechSessionHistory />
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
