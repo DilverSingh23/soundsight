@@ -137,7 +137,7 @@ export default function TypeToSpeak() {
   const prefersLargeText = preferences.textSize === "large";
 
   return (
-    <main className="flex flex-1 flex-col bg-[linear-gradient(180deg,#fbf9f6_10%,#f1ecfa_100%)] px-5 pb-8 pt-[max(2.75rem,env(safe-area-inset-top))] text-foreground">
+    <main className="flex flex-1 flex-col bg-[linear-gradient(180deg,#fbf9f6_10%,#f1ecfa_100%)] px-5 pb-8 pt-11 text-foreground">
       <header className="relative">
         <div className="flex items-center gap-2">
           <Link href="/" aria-label="Back to Home" className="flex min-h-11 min-w-7 items-center justify-center rounded-lg text-2xl text-muted hover:text-foreground">‹</Link>
@@ -222,7 +222,7 @@ export default function TypeToSpeak() {
             <p className="text-xs font-semibold text-brand-deep">
               {playback === "speaking" ? "Speaking your message" : playback === "finished" ? "Ready to speak again" : playback === "error" ? "Playback unavailable" : "Ready to speak"}
             </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-muted">{notice || "Uses your browser’s speech feature."}</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-muted">{notice || "Uses ElevenLabs, with a device voice fallback."}</p>
           </div>
         </div>
         {playback === "speaking" && (

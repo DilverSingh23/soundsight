@@ -1,3 +1,5 @@
+import { backendSocketProtocols } from "./backend-access.ts";
+
 export type ListeningStatus = "Stopped" | "Requesting permission" | "Connecting" | "Listening" | "Finishing" | "Error";
 export type AudioStats = { chunks: number; bytes: number; duration_seconds: number; rms: number; peak: number };
 
@@ -6,6 +8,7 @@ export type Classification = {
   window_end: number;
   inference_ms: number;
   results: { category: string; subtype: string; score: number; raw_class: string }[];
+  alert_rules?: Record<string, { threshold: number; cooldown_seconds: number; cooldown_remaining_seconds: number }>;
 };
 export type ClassificationStatus = { state: "disabled" | "ready" | "error"; message: string };
 export type SoundEvent = {
@@ -114,7 +117,11 @@ export function startMicrophoneStream({ onStatus, onStats, onClassification, onC
         return;
       }
       onStatus("Connecting", "Connecting to the backend…");
-      socket = new WebSocket(backendUrl);
+      if (window.location?.protocol === "https:" && !backendUrl.startsWith("wss://")) {
+        fail("Listening requires a secure WSS backend on HTTPS pages.");
+        return;
+      }
+      socket = new WebSocket(backendUrl, backendSocketProtocols());
       timeout = setTimeout(() => fail("Backend did not respond. Check that it is running."), 10000);
       socket.onopen = () => {
         socket?.send(JSON.stringify({ type: "start", encoding: "pcm_s16le", sample_rate: 16000, channels: 1 }));
@@ -153,7 +160,7 @@ export function startMicrophoneStream({ onStatus, onStats, onClassification, onC
           fail("Invalid backend response. Listening stopped.");
         }
       };
-      socket.onerror = () => fail("Connection failed. Check that the backend is running.");
+      socket.onerror = () => fail("Connection failed. Check the backend URL and your demo access code in Settings.");
       socket.onclose = () => fail("Backend disconnected. Listening has stopped.");
     } catch (error) {
       const name = error instanceof Error ? error.name : "";

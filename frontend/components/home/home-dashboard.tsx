@@ -42,7 +42,7 @@ export default function HomeDashboard() {
     <main className="flex flex-1 flex-col bg-plum text-light-on-dark">
       <section className="relative min-h-[258px] overflow-hidden bg-[radial-gradient(ellipse_at_65%_25%,#3a305f_0%,#242044_52%,#16132d_100%)]">
         <Nightscape />
-        <div className="relative z-10 px-6 pt-[max(2.75rem,env(safe-area-inset-top))]">
+        <div className="relative z-10 px-6 pt-11">
           <div className="flex items-center gap-2 text-base font-semibold tracking-[-0.03em]">
             <SoundWaveIcon className="text-[#e7dbff]" />
             <span>SoundSight</span>

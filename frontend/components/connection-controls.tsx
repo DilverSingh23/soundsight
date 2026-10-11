@@ -32,7 +32,16 @@ export default function ConnectionControls({ diagnosticsOnly = false, buttonsOnl
           <p>Audio {classification.window_start.toFixed(2)}–{classification.window_end.toFixed(2)} s · Inference {classification.inference_ms.toFixed(0)} ms</p>
           <ul className="mt-2 space-y-1">
             {classification.results.map((result) => (
-              <li key={result.category}>{result.category} / {result.subtype}: {result.score.toFixed(3)} ({result.raw_class})</li>
+              <li key={result.category}>
+                {result.category} / {result.subtype}: {result.score.toFixed(3)} ({result.raw_class})
+                {classification.alert_rules?.[result.category] && (
+                  <span> · threshold {classification.alert_rules[result.category].threshold.toFixed(2)}
+                    {classification.alert_rules[result.category].cooldown_remaining_seconds > 0
+                      ? ` · repeat suppressed for ${classification.alert_rules[result.category].cooldown_remaining_seconds.toFixed(1)} s`
+                      : " · no cooldown active"}
+                  </span>
+                )}
+              </li>
             ))}
           </ul>
           <p className="mt-2">Scores are model estimates, not confirmed detections. Values shown are from the last analyzed window.</p>

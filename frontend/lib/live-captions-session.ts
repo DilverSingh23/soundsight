@@ -80,7 +80,10 @@ export function startLiveCaptionsSession(
   return (graceful = false) => {
     if (!active) return;
     if (finishing) {
-      if (!graceful) end();
+      if (!graceful) {
+        end();
+        callbacks.onStatus("Stopped", "Microphone released and connections closed.");
+      }
       return;
     }
     releaseCapture(); // Release microphone and backend socket immediately.

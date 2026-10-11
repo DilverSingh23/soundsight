@@ -56,9 +56,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  background: var(--plum);
+}
+
 body {
   min-height: 100dvh;
-  background: var(--background);
+  background: var(--plum);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
@@ -84,6 +88,11 @@ body {
 }
 
 /* Shared preference: stronger text and outline contrast across light/dark routes. */
+.soundsight-shell {
+  /* Keep content below the notch while the background fills the viewport. */
+  padding-top: max(1rem, env(safe-area-inset-top, 0px));
+}
+
 .soundsight-shell[data-high-contrast="true"] {
   --foreground: #150b24;
   --muted: #483958;

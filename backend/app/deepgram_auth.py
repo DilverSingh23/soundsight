@@ -13,8 +13,8 @@ DEEPGRAM_GRANT_URL = "https://api.deepgram.com/v1/auth/grant"
 async def create_deepgram_token(response: Response) -> dict[str, str | int]:
     """Issue a short-lived JWT for a browser to open a Deepgram STT WebSocket.
 
-    This development endpoint has no user authentication; secure and rate-limit
-    it before exposing it to the public internet. CORS alone is not access control.
+    Router dependencies apply the demo access gate and provider request budget.
+    CORS alone is not access control.
     """
     response.headers["Cache-Control"] = "no-store"
     if not DEEPGRAM_API_KEY:

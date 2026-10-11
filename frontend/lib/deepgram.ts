@@ -1,3 +1,5 @@
+import { backendAccessHeaders } from "./backend-access.ts";
+
 /**
  * Deepgram Live STT transport. Audio capture and transcript assembly live in
  * separate modules so a single microphone stream can feed this connection.
@@ -125,6 +127,7 @@ export class DeepgramClient {
       try {
         response = await fetch(`${BACKEND_HTTP_URL.replace(/\/$/, "")}/deepgram/token`, {
           method: "POST",
+          headers: backendAccessHeaders(),
           cache: "no-store",
           signal: controller.signal,
         });
@@ -133,6 +136,7 @@ export class DeepgramClient {
         throw new Error("Could not reach the SoundSight authentication backend.");
       }
       if (session !== this.generation) throw new Error("Deepgram connection canceled.");
+      if (response.status === 401) throw new Error("Enter your demo access code in Settings, then restart listening.");
       if (!response.ok) throw new Error("Could not obtain temporary Deepgram credentials.");
 
       let payload: unknown;

@@ -71,6 +71,25 @@ export function ListeningProvider({ children }: { children: ReactNode }) {
     cleanupRef.current?.();
   }, []);
 
+  useEffect(() => {
+    function interruptListening() {
+      if (!activeRef.current) return;
+      cleanupRef.current?.(false);
+      setMessage("Listening stopped because the app was hidden or lost its network connection. Return to the app and press Start Listening.");
+    }
+    function visibilityChanged() {
+      if (document.visibilityState === "hidden") interruptListening();
+    }
+    document.addEventListener("visibilitychange", visibilityChanged);
+    window.addEventListener("offline", interruptListening);
+    window.addEventListener("pagehide", interruptListening);
+    return () => {
+      document.removeEventListener("visibilitychange", visibilityChanged);
+      window.removeEventListener("offline", interruptListening);
+      window.removeEventListener("pagehide", interruptListening);
+    };
+  }, []);
+
   function start() {
     if (activeRef.current) return;
     cleanupRef.current?.();

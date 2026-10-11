@@ -96,8 +96,9 @@ token to connect directly to Deepgram. FastAPI does not proxy transcription audi
 The key needs permission to mint Deepgram tokens. For deployment, set
 `FRONTEND_ORIGIN` and `SOUNDSIGHT_ALLOWED_ORIGINS` to the intended frontend HTTPS
 origins. One CORS middleware permits their combined list for both TTS and tokens.
-Protect the token endpoint against unauthorized use; the current route has no authentication
-or rate limit, and CORS is not authentication.
+Provider routes use the optional demo access code and a shared request budget.
+Production requires the code; CORS is not authentication. See `../DEPLOYMENT.md`
+for all hosting variables, HTTPS/WSS settings, and access-code handling.
 
 The browser sends the same mono 16 kHz PCM frames to `/ws/listen` and Deepgram.
 Transcription doesn't wait for YAMNet speech detection. Missing credentials or a

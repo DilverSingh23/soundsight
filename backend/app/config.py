@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+SOUNDSIGHT_ENV = os.getenv("SOUNDSIGHT_ENV", "development")
+SOUNDSIGHT_ACCESS_CODE = os.getenv("SOUNDSIGHT_ACCESS_CODE", "")
+
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
 ELEVENLABS_MODEL_ID = os.getenv("ELEVENLABS_MODEL_ID", "eleven_flash_v2_5")

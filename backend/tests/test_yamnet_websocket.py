@@ -22,6 +22,9 @@ def test_websocket_classification_timestamps(monkeypatch):
             events = [socket.receive_json(), socket.receive_json()]
             event = next(item for item in events if item["type"] == "classification")
             assert (event["window_start"], event["window_end"]) == (0, 0.975)
+            assert event["alert_rules"]["dog"] == {
+                "threshold": 0.3, "cooldown_seconds": 10.0, "cooldown_remaining_seconds": 0,
+            }
             assert len(received[0]) == WINDOW_SAMPLES * 2
 
 
@@ -67,6 +70,8 @@ def test_filtered_events_use_session_cooldowns_and_skip_speech(monkeypatch):
                 assert approved[0]["audio_time"] == 0.975
                 # Next overlapping window remains in the same cooldown.
                 socket.send_bytes(bytes(7680 * 2))
-                assert socket.receive_json()["type"] == "classification"
+                repeated = socket.receive_json()
+                assert repeated["type"] == "classification"
+                assert repeated["alert_rules"]["doorbell"]["cooldown_remaining_seconds"] == 4.52
                 socket.send_json({"type": "ping"})
                 assert socket.receive_json() == {"type": "pong"}

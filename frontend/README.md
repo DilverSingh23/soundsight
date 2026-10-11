@@ -65,38 +65,38 @@ wait over five seconds and speak again. The latter should create a new conversat
 Test Stop during permission/setup and during speech, plus missing-key/network
 failure. Capturing in a locked/background browser and OS push are not supported.
 
-First, run the development server:
+## Run and verify
+
+From `frontend/`:
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run lint
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`. Production builds were checked with the Webpack fallback
+(`npm run build -- --webpack`) because this environment's Turbopack build could not
+bind its helper port. The default build command is unchanged.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Home Screen installation and access
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The manifest and app icons support standalone installation from an HTTPS origin.
+Settings includes iPhone/Android installation instructions and a demo access-code input.
+Production backends require a code; local development defaults to no code. Codes stay
+in sessionStorage for the current tab, with an in-memory fallback if storage is blocked.
+No API keys are placed in the frontend. See `../DEPLOYMENT.md` for configuration.
 
-## Learn More
+There is no offline cache or service worker yet. Push/lock-screen notifications require
+the future remote receiver and push integration. Listening explicitly stops on hidden,
+pagehide, or offline events; it never restarts without a user action. App navigation
+continues listening while the app remains visible.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Settings notification/category switches control in-app banners; history and captions
+continue to update. Speech banners are suppressed on Captions. Voice requests time out
+after 15 seconds, including downloading the response body, and failures trigger the
+existing device voice fallback. Test playback and microphone permission on actual phones.
 
 ## Audio pipeline tests
 
@@ -121,5 +121,5 @@ Manual integration check: start listening, confirm received audio counts, naviga
 to Captions and Alerts, and return Home. Counts should continue without resetting.
 Stop from another screen and confirm the browser microphone indicator turns off.
 Repeat Start/Stop and stop FastAPI while on Captions to check error handling.
-A full reload or closing the app ends the browser session. Caption preview controls
-operate only on sample content; live transcription and sound alerts are not wired.
+A full reload or closing/backgrounding the app ends the browser session. Live captions
+and recognized sound history are connected; demo sound cards are labeled separately.

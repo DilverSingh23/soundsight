@@ -1,10 +1,10 @@
 # soundsight
-All in one digital hearing aid.
+An assistive audio-awareness prototype with live captions, sound estimates, and type-to-speak.
 
 ## Running it locally
 
 **Prerequisites:**
-- Python 3 (for the backend virtual environment)
+- Python 3.13 (for TensorFlow compatibility)
 - Node.js 22.18+ or 24+
 
 ### 1. Backend
@@ -12,7 +12,7 @@ All in one digital hearing aid.
 From `backend/`:
 
 ```bash
-python3 -m venv .venv
+python3.13 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --reload
@@ -42,17 +42,24 @@ See `frontend/README.md` for manual test checklists and how to run frontend test
 ### 3. Try it
 
 Click **Start Listening** and allow microphone access. The backend's chunk/byte
-counters and RMS/peak readings should rise when you speak and fall when quiet —
-that confirms audio is flowing from the browser to FastAPI.
+counters should increase even in silence. RMS/peak readings should rise with sound
+and fall when quiet; those levels confirm a signal reaches FastAPI.
 
 Note: microphone access requires `localhost` or HTTPS. A plain HTTP LAN address
 (e.g. testing from a phone against your laptop's local IP) will not work.
 
 ## Current state
 
-Mic capture → FastAPI WebSocket → live audio stats is working end to end. YAMNet
-sound classification, Deepgram live captions, and Web Push notifications are not
-wired up yet. The `alerts`, `captions`, `speak`, and `settings` pages exist as UI;
-captions/alerts currently show sample content only.
+One browser microphone streams to FastAPI/YAMNet for environmental sound estimates
+and Deepgram for live captions. In-app sound/speech banners, session transcripts,
+and ElevenLabs type-to-speak with a device voice fallback are connected.
 
-See `CLAUDE.md` for the full architecture, event contract, and project constraints.
+The frontend includes Home Screen installation metadata and icons. Listening requires
+an open, active app and connectivity. Lock-screen push, the separate Mac/Pi receiver,
+and offline operation are not implemented. This prototype does not replace certified
+safety-alerting equipment.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for deployment preparation and phone acceptance
+checks; these files do not deploy anything. See `CLAUDE.md` for the proposed future
+architecture and project constraints; its remote-receiver architecture is not the
+current shared-browser-microphone implementation.

@@ -1,15 +1,17 @@
 import asyncio
 from contextlib import asynccontextmanager, suppress
+from collections import deque
 import json
 import os
 import time
 import math
 import struct
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import FRONTEND_ORIGIN, SOUNDSIGHT_ALLOWED_ORIGINS
+from app.access import require_demo_access, validate_deployment_config, websocket_access_allowed
 from app.deepgram_auth import router as deepgram_router
 
 from app.tts import router as tts_router
@@ -21,6 +23,8 @@ from app.events.sound_notifications import SoundNotificationFilter
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_deployment_config(ALLOWED_ORIGINS)
+    app.state.paid_requests = deque()
     app.state.classifier = None
     app.state.inference_lock = asyncio.Lock()
     model_directory = os.getenv("YAMNET_MODEL_DIR", "")
@@ -36,18 +40,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="SoundSight API", lifespan=lifespan)
+ALLOWED_ORIGINS = list(dict.fromkeys([FRONTEND_ORIGIN, *SOUNDSIGHT_ALLOWED_ORIGINS]))
 
 # Allow configured frontend origins to call both TTS and Deepgram token APIs.
-# This is NOT authentication; protect the token endpoint before deploying.
+# The separate access dependency protects provider calls in production.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(dict.fromkeys([FRONTEND_ORIGIN, *SOUNDSIGHT_ALLOWED_ORIGINS])),
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
-app.include_router(tts_router)
-app.include_router(deepgram_router)
+app.include_router(tts_router, dependencies=[Depends(require_demo_access)])
+app.include_router(deepgram_router, dependencies=[Depends(require_demo_access)])
 
 
 @app.get("/health")
@@ -57,7 +62,11 @@ def health():
 
 @app.websocket("/ws/listen")
 async def listen(websocket: WebSocket):
-    await websocket.accept()
+    if not websocket_access_allowed(websocket, ALLOWED_ORIGINS):
+        await websocket.close(code=1008)
+        return
+    protocols = websocket.scope.get("subprotocols", [])
+    await websocket.accept(subprotocol="soundsight" if "soundsight" in protocols else None)
     streaming = False
     chunks = 0
     total_bytes = 0
@@ -96,6 +105,15 @@ async def listen(websocket: WebSocket):
                     "window_end": window.end_seconds,
                     "inference_ms": round((time.perf_counter() - began) * 1000, 1),
                     "results": results,
+                    "alert_rules": {
+                        category: {
+                            "threshold": settings.threshold,
+                            "cooldown_seconds": settings.cooldown,
+                            "cooldown_remaining_seconds": max(0, settings.cooldown - (window.end_seconds - notification_filter.last_emitted[category]))
+                            if category in notification_filter.last_emitted else 0,
+                        }
+                        for category, settings in notification_filter.config.items()
+                    },
                 })
                 for result in results:
                     event = notification_filter.process(

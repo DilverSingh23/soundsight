@@ -1,0 +1,34 @@
+# Free demo backend. Configure secrets in Render, never in this file.
+services:
+  - type: web
+    name: soundsight-backend
+    runtime: docker
+    plan: free
+    region: ohio
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: SOUNDSIGHT_ENV
+        value: production
+      - key: SOUNDSIGHT_ACCESS_CODE
+        generateValue: true
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: SOUNDSIGHT_ALLOWED_ORIGINS
+        sync: false
+      - key: DEEPGRAM_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        value: 21m00Tcm4TlvDq8ikWAM
+      - key: ELEVENLABS_MODEL_ID
+        value: eleven_flash_v2_5
+      - key: TF_NUM_INTEROP_THREADS
+        value: "1"
+      - key: TF_NUM_INTRAOP_THREADS
+        value: "1"
+      - key: OMP_NUM_THREADS
+        value: "1"

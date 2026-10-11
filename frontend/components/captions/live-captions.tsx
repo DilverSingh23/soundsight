@@ -57,7 +57,7 @@ export default function LiveCaptions() {
     : transcriptionMessage || "Start Listening on any screen to capture speech and environmental sounds together.";
 
   return (
-    <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-caption px-5 pb-8 pt-[max(2.75rem,env(safe-area-inset-top))] text-light-on-dark">
+    <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-caption px-5 pb-8 pt-11 text-light-on-dark">
       <div aria-hidden="true" className="pointer-events-none absolute -top-36 right-[-120px] h-[400px] w-[400px] rounded-full bg-[#33336a]/35 blur-[110px]" />
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-4">

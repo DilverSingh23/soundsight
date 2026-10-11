@@ -111,4 +111,5 @@ test("immediate teardown during finishing disconnects without waiting", async ()
   assert.equal(env.counts().ended, 1);
   assert.equal(env.counts().disconnected, 1);
   env.complete();
+  assert.equal(env.statuses.at(-1), "Stopped");
 });

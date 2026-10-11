@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import AppSetup from "./app-setup";
 import { useState } from "react";
 import {
   soundCategoryLabels,
@@ -81,7 +82,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <main className="flex flex-1 flex-col bg-[#fbf9f7] px-5 pb-9 pt-[max(2.75rem,env(safe-area-inset-top))] text-foreground">
+    <main className="flex flex-1 flex-col bg-[#fbf9f7] px-5 pb-9 pt-11 text-foreground">
       <header>
         <h1 className="font-display text-[35px] leading-[1.15] tracking-[-0.035em]">Make it yours</h1>
         <p className="mt-2 text-xs text-muted">Small adjustments. A world of difference.</p>
@@ -112,8 +113,8 @@ export default function SettingsScreen() {
             ))}
           </div>
         </details>
-        <SettingRow icon="speech" label="Speech detection">
-          <SettingSwitch label="Save speech detection preference" checked={preferences.speechDetection} onChange={(checked) => save({ speechDetection: checked })} />
+        <SettingRow icon="speech" label="Speech notifications" detail="Captions continue while listening.">
+          <SettingSwitch label="Speech notifications" checked={preferences.speechDetection} onChange={(checked) => save({ speechDetection: checked })} />
         </SettingRow>
       </SettingsGroup>
 
@@ -146,7 +147,7 @@ export default function SettingsScreen() {
             <span className="flex-1 text-[13px] font-medium">Privacy</span>
             <span aria-hidden="true" className="text-lg text-muted">›</span>
           </summary>
-          <p className="border-t border-[#ded4ed] px-4 py-3 text-xs leading-relaxed text-muted">SoundSight does not upload typed messages or save audio in this frontend preview. Browser speech voices may use device or network processing. Preferences are stored in this browser.</p>
+          <p className="border-t border-[#ded4ed] px-4 py-3 text-xs leading-relaxed text-muted">While listening, microphone audio goes to the SoundSight backend for sound classification and Deepgram for captions. Typed messages go to the backend and ElevenLabs for voice playback. SoundSight does not save raw audio. Events and transcripts stay in this tab until cleared or reloaded. Providers may retain data according to their policies. Preferences are stored in this browser.</p>
         </details>
       </SettingsGroup>
 
@@ -154,10 +155,11 @@ export default function SettingsScreen() {
         <span className="pt-0.5"><SettingIcon kind="privacy" /></span>
         <div>
           <p className="text-xs font-semibold text-foreground">Your preferences stay with this browser.</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-muted">These switches save preferences only. Real push notifications and sound detection require your teammates’ backend and PWA integrations.</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted">Notification preferences control in-app banners. They do not enable system or lock-screen notifications.</p>
         </div>
       </div>
       {saveError && <p role="alert" className="mt-4 text-xs font-semibold text-critical">Your browser blocked saving preferences. Check storage permissions.</p>}
+      <AppSetup />
     </main>
   );
 }
