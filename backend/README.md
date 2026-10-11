@@ -94,8 +94,9 @@ the permanent key in frontend environment variables. `POST /deepgram/token`
 returns a short-lived token with `Cache-Control: no-store`; the browser uses that
 token to connect directly to Deepgram. FastAPI does not proxy transcription audio.
 The key needs permission to mint Deepgram tokens. For deployment, set
-`SOUNDSIGHT_ALLOWED_ORIGINS` to the exact frontend HTTPS origin and protect the
-token endpoint against unauthorized use; the current route has no authentication
+`FRONTEND_ORIGIN` and `SOUNDSIGHT_ALLOWED_ORIGINS` to the intended frontend HTTPS
+origins. One CORS middleware permits their combined list for both TTS and tokens.
+Protect the token endpoint against unauthorized use; the current route has no authentication
 or rate limit, and CORS is not authentication.
 
 The browser sends the same mono 16 kHz PCM frames to `/ws/listen` and Deepgram.

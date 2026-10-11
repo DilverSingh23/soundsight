@@ -1,6 +1,7 @@
 """Token endpoint tests never call Deepgram or use real credentials."""
 
 from fastapi.testclient import TestClient
+import pytest
 
 from app import deepgram_auth
 from app.main import app
@@ -119,10 +120,11 @@ def test_deepgram_token_rejects_expired_token(monkeypatch):
     assert response.status_code == 502
 
 
-def test_cors_allows_local_frontend_and_rejects_other_origins():
+@pytest.mark.parametrize("path", ["/deepgram/token", "/tts/speak"])
+def test_cors_allows_local_frontend_and_rejects_other_origins(path):
     with TestClient(app) as client:
         allowed = client.options(
-            "/deepgram/token",
+            path,
             headers={
                 "Origin": "http://localhost:3000",
                 "Access-Control-Request-Method": "POST",
@@ -132,7 +134,7 @@ def test_cors_allows_local_frontend_and_rejects_other_origins():
         assert allowed.headers["access-control-allow-origin"] == "http://localhost:3000"
 
         blocked = client.options(
-            "/deepgram/token",
+            path,
             headers={
                 "Origin": "https://untrusted.example",
                 "Access-Control-Request-Method": "POST",
