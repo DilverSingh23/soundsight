@@ -1,4 +1,4 @@
-export type ListeningStatus = "Stopped" | "Requesting permission" | "Connecting" | "Listening" | "Error";
+export type ListeningStatus = "Stopped" | "Requesting permission" | "Connecting" | "Listening" | "Finishing" | "Error";
 export type AudioStats = { chunks: number; bytes: number; duration_seconds: number; rms: number; peak: number };
 
 export type Classification = {
@@ -19,12 +19,14 @@ export type SoundEvent = {
   severity: "critical" | "important" | "ambient";
 };
 
-type Callbacks = {
+export type MicrophoneStreamCallbacks = {
   onStatus: (status: ListeningStatus, message: string) => void;
   onStats: (stats: AudioStats) => void;
   onClassification?: (result: Classification) => void;
   onClassificationStatus?: (status: ClassificationStatus) => void;
   onSoundEvent?: (event: SoundEvent) => void;
+  beforeCapture?: () => Promise<void>;
+  onAudio?: (audio: ArrayBuffer) => void;
 };
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_WS_URL ?? "ws://localhost:8000/ws/listen";
@@ -40,7 +42,7 @@ export function encodePCMFrame(frame: Int16Array): ArrayBuffer {
 }
 
 // Returns cleanup immediately so Stop also works during permission/setup awaits.
-export function startMicrophoneStream({ onStatus, onStats, onClassification, onClassificationStatus, onSoundEvent }: Callbacks, getCapture: () => Promise<CaptureModule> = loadCapture): () => void {
+export function startMicrophoneStream({ onStatus, onStats, onClassification, onClassificationStatus, onSoundEvent, beforeCapture, onAudio }: MicrophoneStreamCallbacks, getCapture: () => Promise<CaptureModule> = loadCapture): () => void {
   let stopped = false;
   let stopCapture: (() => Promise<void>) | undefined;
   let socket: WebSocket | undefined;
@@ -69,6 +71,9 @@ export function startMicrophoneStream({ onStatus, onStats, onClassification, onC
     if (stopped || !socket) return;
     const capture = await getCapture();
     if (stopped) return;
+    clearTimeout(timeout);
+    await beforeCapture?.();
+    if (stopped) return;
     onStatus("Requesting permission", "Allow microphone access to begin. You can cancel with Stop Listening.");
     clearTimeout(timeout); // Permission dialogs can stay open until the user responds.
     const currentSocket = socket;
@@ -83,7 +88,9 @@ export function startMicrophoneStream({ onStatus, onStats, onClassification, onC
         return;
       }
       try {
-        currentSocket.send(encodePCMFrame(frame));
+        const audio = encodePCMFrame(frame);
+        currentSocket.send(audio);
+        onAudio?.(audio);
       } catch {
         fail("Could not send audio. Listening stopped.");
       }

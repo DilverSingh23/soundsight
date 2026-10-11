@@ -9,7 +9,9 @@ import struct
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import FRONTEND_ORIGIN
+from app.config import FRONTEND_ORIGIN, SOUNDSIGHT_ALLOWED_ORIGINS
+from app.deepgram_auth import router as deepgram_router
+
 from app.tts import router as tts_router
 
 from app.audio.windows import AudioWindowBuffer
@@ -35,15 +37,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="SoundSight API", lifespan=lifespan)
 
-# Only the type-to-speak fetch needs this; the microphone WebSocket isn't CORS-gated.
+# Allow configured frontend origins to call both TTS and Deepgram token APIs.
+# This is NOT authentication; protect the token endpoint before deploying.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_ORIGIN],
-    allow_methods=["POST"],
+    allow_origins=list(dict.fromkeys([FRONTEND_ORIGIN, *SOUNDSIGHT_ALLOWED_ORIGINS])),
+    allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
 
 app.include_router(tts_router)
+app.include_router(deepgram_router)
 
 
 @app.get("/health")
